@@ -671,8 +671,9 @@ class DominantColorsExtractor(ColorExtractor):
         
         # Apply K-means
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
+        labels = np.zeros((pixels.shape[0], 1), dtype=np.int32)
         _, labels, centers = cv2.kmeans(
-            pixels, self.n_colors, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS
+            pixels, self.n_colors, labels, criteria, 10, cv2.KMEANS_RANDOM_CENTERS
         )
         
         # Sort by frequency (most common first)
@@ -957,7 +958,7 @@ class SimilarityComputer:
         # Level 2: Combine category similarities with category weights
         if 'category_weights' not in self.weights:
             # No category weights, use equal weights
-            return np.mean(list(category_similarities.values()))
+            return float(np.mean(list(category_similarities.values())))
         
         final_similarity = 0.0
         total_cat_weight = 0.0
