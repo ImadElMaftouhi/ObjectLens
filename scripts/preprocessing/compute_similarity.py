@@ -19,7 +19,6 @@ from feature_extraction import (
     SimilarityComputer,
 )
 
-
 # -------- Config ----------
 DATA_ROOT = Path("imagenet_yolo15/images")
 FEATURES_ROOT = Path("features/all")
@@ -51,7 +50,7 @@ def _to_numpy(obj: Any) -> Any:
     return obj
 
 
-def load_aggregated_features() -> Dict[str, Any]:
+def load_aggregated_features(query_image_path: str | Path) -> Dict[str, Any]:
     """
     Load precomputed per-image features from JSON files.
     
@@ -65,19 +64,16 @@ def load_aggregated_features() -> Dict[str, Any]:
     
     # Load all JSON files from the features directory
     aggregated = {}
-    json_files = list(features_dir.glob("*.json"))
+    json_files = [file_path for file_path in features_dir.glob("*.json") if file_path != Path(query_image_path).name]
     
     if not json_files:
         raise FileNotFoundError(f"No JSON feature files found in: {features_dir}")
     
-    print(f"Loading {len(json_files)} feature files...")
     start_time = time.time()
-    
     for json_file in tqdm(json_files, desc="Loading features", unit="file"):
         with open(json_file, "r", encoding="utf-8") as f:
             features = json.load(f)
             aggregated[json_file.stem] = _to_numpy(features)
-    
     end_time = time.time() - start_time
     print(f"Loaded {len(aggregated)} features in {end_time:.2f} seconds.")
     return aggregated
@@ -92,49 +88,6 @@ def extract_query_features(query_image_path: str | Path) -> Dict[str, Any]:
         Dictionary of extracted features
     """
     return FEATURE_SERVICE.extract(query_image_path)
-
-
-def extract_vector(features, cats:list=[]):
-    """Extract and concatenate category vectors."""
-    vectors = []
-    
-    for cat in cats:
-        if cat in features and 'combined' in features[cat]:
-            vec = features[cat]['combined']
-            if isinstance(vec, list):
-                vec = np.array(vec)
-            vectors.append(vec)
-
-    if not vectors:
-        raise ValueError("No feature vectors found in categories")
-    
-    combined = np.concatenate(vectors)
-    # Normalize
-    norm = np.linalg.norm(combined)
-    if norm > 0:
-        combined = combined / norm
-    return combined
-
-
-def compute_similarity_vectors(
-    query_features: Dict[str, Any],
-    database_features: Dict[str, Any],
-    weights: Optional[Dict[str, Any]] = None,
-    categories: Optional[List[str]] = None
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Extract and normalize category-combined vectors for similarity computation.
-    """
-    if categories is None:
-        categories = ['form', 'texture', 'color']
-    
-    query_vec, db_vec = None, None
-    if query_features is not None:
-        query_vec = extract_vector(query_features, categories)
-    if database_features is not None:
-        db_vec = extract_vector(database_features, categories)
-
-    return query_vec, db_vec
 
 
 def search_similar_images(
@@ -163,7 +116,7 @@ def search_similar_images(
         raise ValueError("No features extracted from query image.")
 
     # Load database features
-    database_features = load_aggregated_features()
+    database_features = load_aggregated_features(query_image_path)
     # key = next(iter(database_features.keys()), None)
     # if key is not None:
     #     print(f"{key}: {database_features[key]}")
@@ -171,26 +124,11 @@ def search_similar_images(
     print(f"Computing similarity against {len(database_features)} images...")
     similarities = []
     
-    # Extract query vector
-    query_vec = extract_vector(query_features, ["form", "texture", "color"])
-    
     # For each database image, compute similarity
     for image_path, db_features in database_features.items():
         try:
-            db_vec = extract_vector(db_features, categories)
-            
-            # Compute distance
-            if distance_metric == "cosine":
-                # cosine distance = 1 - cosine similarity
-                distance = cosine(query_vec, db_vec)
-                similarity = 1.0 - distance
-            elif distance_metric == "euclidean":
-                distance = euclidean(query_vec, db_vec)
-                # Invert: smaller distances are better
-                similarity = 1.0 / (1.0 + distance)
-            else:
-                raise ValueError(f"Unknown distance metric: {distance_metric}")
-            
+            # print(f"Computing similarity for {image_path}")
+            similarity = SIMILARITY_COMPUTER.compute(query_features, db_features)
             similarities.append((image_path, similarity))
         
         except Exception as e:
@@ -214,7 +152,7 @@ def render_image(query_path:str=""):
     plt.show()
 
 
-def render_similar_images(query_path: str, topk_image_names: List[str]):
+def render_topk_images(query_path: str, topk_image_names: List[str]):
     """
     Render a figure containing the query image and top-k similar images.
     """
@@ -261,29 +199,18 @@ def main():
     """
     Example usage: search for similar images given a query image.
     """
-    # Example query image (adjust path as needed)
     query_image = DATA_ROOT / "train/n02958343_3003.jpeg"
-    # if not query_image.exists():
-    #     print(f"Query image not found: {query_image}")
-    #     exit(0)
-    # render_image(str(query_image))
-
-    # Search in train dataset
-    print(f"\n=== Searching similar images for: {query_image} ===")
-    results = search_similar_images(
-        query_image,
-        top_k=10,
-        distance_metric="cosine"
-    )
+    
+    print(f"\n=== Searching similar images for: {Path(query_image).name} ===")
+    results = search_similar_images(query_image,top_k=10,distance_metric="cosine")
     print(f"search finished with {len(results)} results")
-
 
     print(f"\nTop 10 similar images:")
     for idx, (image_path, similarity) in enumerate(results, 1):
         print(f"{idx:2d}. {image_path:<60} (similarity: {similarity:.4f})")
 
     topk_image_names = [Path(image_path).name for image_path, _ in results]
-    render_similar_images(str(query_image.relative_to(DATA_ROOT)), topk_image_names)
+    render_topk_images(str(query_image.relative_to(DATA_ROOT)), topk_image_names)
 
 
 if __name__ == "__main__":
