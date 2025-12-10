@@ -11,23 +11,26 @@ from pathlib import Path
 from tqdm import tqdm
 
 # 15 synsets for the project
+
 WNIDS = [
-    'n00007846',  # person
+    'n02084071',  # dog
+    'n02124075',  # cat
     'n02958343',  # car
     'n02924116',  # bus
     'n04490091',  # truck
-    'n02834778',  # bicycle
-    'n03790512',  # motorcycle
-    'n02084071',  # dog
-    'n02121620',  # cat
     'n03001627',  # chair
-    'n03642806',  # laptop
-    'n02992529',  # cell phone
     'n02823428',  # bottle
-    'n03147509',  # cup
+    'n02992529',  # cell_phone
     'n02769748',  # backpack
-    'n04485082',  # telephone
+    'n03642806',  # laptop
+    'n02942699',  # camera
+    'n04254680',  # soccer_ball
+    'n03790512',  # motorcycle
+    'n04485082',  # tripod
+    'n00007846',  # person   <-- replaced cup
 ]
+
+
 
 # Download annotations from: https://www.image-net.org/data/bboxes_annotations.tar.gz
 # Download images from Winter 2021 release: https://image-net.org/data/winter21_whole/<WNID>.tar
@@ -101,7 +104,7 @@ def download_bounding_boxes():
         # Download tar.gz file
         print("\nDownloading bounding box annotations...")
         response = requests.get(bbox_url, stream=True, timeout=600)
-        response.raise_for_status()     
+        response.raise_for_status()
         
         total_size = int(response.headers.get('content-length', 0))
         

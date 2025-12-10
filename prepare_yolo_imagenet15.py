@@ -5,7 +5,11 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
-# Paths from your current script
+# ==========================
+# PATHS
+# ==========================
+
+# Where your download script stored the data
 DATASET_DIR = "dataset"
 BBOX_DIR = os.path.join(DATASET_DIR, "bounding_boxes")
 
@@ -19,32 +23,42 @@ os.makedirs(os.path.join(IMAGES_DIR, "val"), exist_ok=True)
 os.makedirs(os.path.join(LABELS_DIR, "train"), exist_ok=True)
 os.makedirs(os.path.join(LABELS_DIR, "val"), exist_ok=True)
 
-# ---- Class mapping ----
+# ==========================
+# CLASS MAPPING
+# ==========================
+
 WNID_TO_NAME = {
-    'n00007846': 'person',
+    'n02084071': 'dog',
+    'n02124075': 'cat',         
     'n02958343': 'car',
     'n02924116': 'bus',
     'n04490091': 'truck',
-    'n02834778': 'bicycle',
-    'n03790512': 'motorcycle',
-    'n02084071': 'dog',
-    'n02121620': 'cat',
     'n03001627': 'chair',
-    'n03642806': 'laptop',
-    'n02992529': 'cell phone',
     'n02823428': 'bottle',
-    'n03147509': 'cup',
+    'n02992529': 'cell_phone',
     'n02769748': 'backpack',
-    'n04485082': 'telephone',
+    'n03642806': 'laptop',
+    'n00007846': 'person',  
+    'n02942699': 'camera',
+    'n04254680': 'soccer_ball',
+    'n03790512': 'motorcycle',
+    'n04485082': 'tripod',
 }
 
+
+# class_id in [0..14]
 WNID_TO_ID = {wnid: i for i, wnid in enumerate(WNID_TO_NAME.keys())}
 
+
+# ==========================
+# HELPERS
+# ==========================
 
 def find_image_for_xml(wnid: str, stem: str):
     """
     Try to find the corresponding image file for a given XML stem.
-    e.g. stem = 'n02958343_12345'
+    Example: stem = 'n02958343_12345'
+    Looks in dataset/<wnid>/ for that stem with common extensions.
     """
     img_dir = Path(DATASET_DIR) / wnid
     if not img_dir.exists():
@@ -109,7 +123,7 @@ def parse_xml_to_yolo(xml_path: Path, class_id: int):
         if xmax <= xmin or ymax <= ymin:
             continue
 
-        # Convert to YOLO format
+        # Convert to YOLO format (normalized)
         x_center = ((xmin + xmax) / 2.0) / w
         y_center = ((ymin + ymax) / 2.0) / h
         bw = (xmax - xmin) / w
@@ -141,6 +155,7 @@ def build_image_bbox_index():
     """
     Build a dict: image_path -> list of (class_id, x_center, y_center, w, h)
     If multiple XMLs map to same image, we merge boxes.
+    Only keep entries where both XML and image exist and bbox list is non-empty.
     """
     img_to_boxes = {}
 
@@ -173,21 +188,47 @@ def build_image_bbox_index():
     return img_to_boxes
 
 
-def split_train_val(images, train_ratio=0.8):
-    images = list(images)
-    random.shuffle(images)
-    n_train = int(len(images) * train_ratio)
-    train_imgs = images[:n_train]
-    val_imgs = images[n_train:]
-    return train_imgs, val_imgs
+def stratified_split(img_to_boxes, train_ratio=0.8):
+    """
+    Stratified split per class (wnid):
+    - Group images by wnid (taken from the folder name: dataset/<wnid>/img)
+    - For each wnid, split its images into train/val with given ratio.
+    """
+    class_to_imgs = defaultdict(list)
+
+    for img_path in img_to_boxes.keys():
+        # parent folder name is the wnid: dataset/<wnid>/<file>
+        wnid = img_path.parent.name
+        class_to_imgs[wnid].append(img_path)
+
+    train, val = [], []
+
+    for wnid, images in class_to_imgs.items():
+        random.shuffle(images)
+        n_train = int(len(images) * train_ratio)
+        wnid_train = images[:n_train]
+        wnid_val = images[n_train:]
+
+        train.extend(wnid_train)
+        val.extend(wnid_val)
+
+        print(f"Stratified split {wnid} ({WNID_TO_NAME[wnid]}): "
+              f"{len(wnid_train)} train, {len(wnid_val)} val")
+
+    return train, val
 
 
 def copy_and_write_labels(img_to_boxes):
     """
     Copy images into YOLO structure and write label txt files.
+    Uses stratified per-class split.
     """
     all_images = list(img_to_boxes.keys())
-    train_imgs, val_imgs = split_train_val(all_images, train_ratio=0.8)
+    print(f"\nTotal images with at least one bbox: {len(all_images)}")
+
+    train_imgs, val_imgs = stratified_split(img_to_boxes, train_ratio=0.8)
+
+    print(f"\nGlobal split -> Train: {len(train_imgs)}, Val: {len(val_imgs)}")
 
     def process_split(img_list, split_name):
         for img_path in img_list:
@@ -204,9 +245,6 @@ def copy_and_write_labels(img_to_boxes):
                     line = f"{cls} {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}\n"
                     f.write(line)
 
-    print(f"\nTotal images with at least one bbox: {len(all_images)}")
-    print(f"Splitting 80/20 -> Train: {len(train_imgs)}, Val: {len(val_imgs)}")
-
     process_split(train_imgs, "train")
     process_split(val_imgs, "val")
 
@@ -220,8 +258,7 @@ def print_effective_summary(img_to_boxes):
     wnid_to_box_count = defaultdict(int)
 
     for img_path, boxes in img_to_boxes.items():
-        # parent folder name should be the wnid: dataset/<wnid>/<file>
-        wnid = img_path.parent.name
+        wnid = img_path.parent.name  # dataset/<wnid>/<file>
         wnid_to_img_count[wnid] += 1
         wnid_to_box_count[wnid] += len(boxes)
 
@@ -232,7 +269,7 @@ def print_effective_summary(img_to_boxes):
     total_imgs = 0
     total_boxes = 0
 
-    for wnid in WNID_TO_NAME.keys():  # keep same order as mapping
+    for wnid in WNID_TO_NAME.keys():  # keep same order
         img_c = wnid_to_img_count.get(wnid, 0)
         box_c = wnid_to_box_count.get(wnid, 0)
         total_imgs += img_c
@@ -241,6 +278,10 @@ def print_effective_summary(img_to_boxes):
 
     print(f"\nTotal effective: {total_imgs} images, {total_boxes} boxes\n")
 
+
+# ==========================
+# MAIN
+# ==========================
 
 def main():
     random.seed(42)
@@ -251,10 +292,10 @@ def main():
     # Print per-class effective stats BEFORE copying
     print_effective_summary(img_to_boxes)
 
-    print("Creating YOLO dataset structure...")
+    print("Creating YOLO dataset structure with stratified split...")
     copy_and_write_labels(img_to_boxes)
 
-    print("Done! YOLO dataset created in:", YOLO_ROOT)
+    print("\nDone! YOLO dataset created in:", YOLO_ROOT)
 
 
 if __name__ == "__main__":
