@@ -74,8 +74,10 @@ def parse_xml_annotation(xml_path):
         
         # Extract size
         size_elem = root.find('size')
-        width = int(size_elem.find('width').text) if size_elem is not None and size_elem.find('width') is not None else None
-        height = int(size_elem.find('height').text) if size_elem is not None and size_elem.find('height') is not None else None
+        width_elem = size_elem.find('width') if size_elem is not None else None
+        width = int(width_elem.text) if width_elem is not None and width_elem.text is not None else None
+        height_elem = size_elem.find('height') if size_elem is not None else None
+        height = int(height_elem.text) if height_elem is not None and height_elem.text is not None else None
         
         # Count objects
         objects = root.findall('object')
