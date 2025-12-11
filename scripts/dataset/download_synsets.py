@@ -36,9 +36,12 @@ WNIDS = [
 # Download images from Winter 2021 release: https://image-net.org/data/winter21_whole/<WNID>.tar
 
 # Base directories
-DATASET_DIR = "dataset"
+DATASET_DIR = "raw_data"
+IMAGES_DIR = DATASET_DIR + "/images" # consider isolating the images in raw_data/images/ instead of raw_data/
 BBOX_DIR = os.path.join(DATASET_DIR, "bounding_boxes")
+
 WINTER21_BASE_URL = "https://image-net.org/data/winter21_whole"
+BBOX_URL = "https://www.image-net.org/data/bboxes_annotations.tar.gz"
 
 
 def download_synset(wnid):
@@ -77,11 +80,11 @@ def download_synset(wnid):
         
         # Clean up tar file
         os.remove(tar_path)
-        print(f"  ✓ Completed {wnid}")
+        print(f"    Completed {wnid}")
         return True
         
     except Exception as e:
-        print(f"  ✗ Failed {wnid}: {e}")
+        print(f"    Failed {wnid}: {e}")
         if os.path.exists(tar_path):
             os.remove(tar_path)
         return False
@@ -96,14 +99,13 @@ def download_bounding_boxes():
     print("Downloading Bounding Box Annotations")
     print("="*60)
     
-    bbox_url = "https://www.image-net.org/data/bboxes_annotations.tar.gz"
     tar_gz_path = os.path.join(DATASET_DIR, "bboxes_annotations.tar.gz")
     temp_extract_dir = os.path.join(DATASET_DIR, "bboxes_temp")
     
     try:
         # Download tar.gz file
         print("\nDownloading bounding box annotations...")
-        response = requests.get(bbox_url, stream=True, timeout=600)
+        response = requests.get(BBOX_URL, stream=True, timeout=600)
         response.raise_for_status()
         
         total_size = int(response.headers.get('content-length', 0))
@@ -163,9 +165,9 @@ def download_bounding_boxes():
                         
                         xml_count = len(xml_files)
                         extracted_count += xml_count
-                        print(f"    ✓ {wnid}: {xml_count} annotations")
+                        print(f"        {wnid}: {xml_count} annotations")
                     else:
-                        print(f"    ⚠ {wnid}: Annotation directory not found")
+                        print(f"        {wnid}: Annotation directory not found")
                     
                     # Clean up temporary extraction directory
                     shutil.rmtree(synset_temp_dir, ignore_errors=True)
@@ -236,7 +238,7 @@ def main():
     
     # Download synsets from Winter 2021 release
     print("\n" + "="*60)
-    print("Downloading Synsets (Winter 2021 Release)")
+    print("Downloading 15 Synsets (Winter 2021 Release)")
     print("="*60)
     
     success_count = 0
