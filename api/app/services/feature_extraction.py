@@ -27,8 +27,8 @@ Usage:
     orientation = OrientationHistogramExtractor(bins=36)
     tamura = TamuraExtractor()
     gabor = GaborExtractor()
-    hsv = HSVHistogramExtractor(bins=256)
-    dominant = DominantColorsExtractor(n_colors=5)
+    hsv = HSVHistogramExtractor(bins=32)
+    dominant = DominantColorsExtractor(n_colors=3)
     
     # Create service
     service = FeatureExtractionService([fourier, orientation, tamura, gabor, hsv, dominant])
@@ -588,7 +588,7 @@ class HSVHistogramExtractor(ColorExtractor):
     Extract HSV color histogram features.
     """
     
-    def __init__(self, bins: int = 256, normalize: bool = True, 
+    def __init__(self, bins: int = 32, normalize: bool = True, 
                  name: Optional[str] = None):
         """
         Args:
@@ -613,9 +613,9 @@ class HSVHistogramExtractor(ColorExtractor):
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         
         # Compute histograms for each channel
-        hist_h = cv2.calcHist([hsv], [0], None, [self.bins], [0, 180])
-        hist_s = cv2.calcHist([hsv], [1], None, [self.bins], [0, 256])
-        hist_v = cv2.calcHist([hsv], [2], None, [self.bins], [0, 256])
+        hist_h = cv2.calcHist([hsv], [0], None, [self.bins], [0, 32])
+        hist_s = cv2.calcHist([hsv], [1], None, [self.bins], [0, 32])
+        hist_v = cv2.calcHist([hsv], [2], None, [self.bins], [0, 32])
         
         # Normalize if requested
         if self.normalize:
@@ -649,7 +649,7 @@ class DominantColorsExtractor(ColorExtractor):
     Extract dominant colors using K-means clustering.
     """
     
-    def __init__(self, n_colors: int = 5, name: Optional[str] = None):
+    def __init__(self, n_colors: int = 3, name: Optional[str] = None):
         """
         Args:
             n_colors: Number of dominant colors to extract
