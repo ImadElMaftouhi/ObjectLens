@@ -118,11 +118,17 @@ ObjectLens/
 │       └── ...
 │
 ├── scripts/                           # Preprocessing & utility scripts
+│   └── dataset/                        # Everything that touches the raw dataset
+│   │   ├── download_synsets.py
+│   │   ├── verify_downloads.py
+│   │   ├── build_yolo_dataset.py     # ex prepare_yolo_imagenet15.py
+│   │   └── verification_report.json    # output of verify_downloads.py
 │   ├── preprocessing/
 │   │   ├── compute_similarity.py      # Compute feature similarity
 │   │   ├── feature_extraction.py      # Extract features from objects
 │   │   ├── precompute_features.py     # Pre-compute all features
 │   │   └── __pycache__/
+
 │   └── README.md
 │
 ├── docs/                              # Documentation
