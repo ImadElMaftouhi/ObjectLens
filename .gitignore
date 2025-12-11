@@ -51,8 +51,12 @@ thumbnails/
 
 # Dataset (keep structure, ignore large files if needed)
 # Uncomment if you want to ignore dataset files
-# dataset/**/*.JPEG
-# dataset/**/*.xml
+playground/
+imagenet_yolo15/
+yolov8n_imagenet152.zip
+raw_data/
+features/
+
 
 # Python
 *.egg-info/
@@ -71,19 +75,15 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 
 # Python API
-python-api/__pycache__/
-python-api/models/*.pt
-python-api/indexes/*.index
-python-api/thumbnails/
+api/__pycache__/
+api/models/*.pt
+api/indexes/*.index
+api/thumbnails/
 
 # Temporary files
 *.tmp
 *.temp
 .cache/
 
-./playground/
-./dataset/
-./features/
-./imagenet_yolo15
+# Virtual environments
 ./venv
-./yolov8n_imagenet152.zip
