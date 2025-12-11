@@ -11,25 +11,25 @@ import json
 
 # 15 synsets for the project (must match download_synsets.py)
 WNIDS = [
-    'n00007846',  # person
+    'n02084071',  # dog
+    'n02124075',  # cat
     'n02958343',  # car
     'n02924116',  # bus
     'n04490091',  # truck
-    'n02834778',  # bicycle
-    'n03790512',  # motorcycle
-    'n02084071',  # dog
-    'n02121620',  # cat
     'n03001627',  # chair
-    'n03642806',  # laptop
-    'n02992529',  # cell phone
     'n02823428',  # bottle
-    'n03147509',  # cup
+    'n02992529',  # cell_phone
     'n02769748',  # backpack
-    'n04485082',  # telephone
+    'n03642806',  # laptop
+    'n02942699',  # camera
+    'n04254680',  # soccer_ball
+    'n03790512',  # motorcycle
+    'n04485082',  # tripod
+    'n00007846',  # person   <-- replaced cup
 ]
 
 # Base directories (must match download_synsets.py)
-DATASET_DIR = "dataset"
+DATASET_DIR = "raw_data"
 BBOX_DIR = os.path.join(DATASET_DIR, "bounding_boxes")
 
 # Supported image extensions
