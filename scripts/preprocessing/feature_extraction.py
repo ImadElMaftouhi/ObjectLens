@@ -314,7 +314,7 @@ class FourierDescriptorExtractor(FormExtractor):
                 if len(desc) < self.n_coeff:
                     desc = np.pad(desc, (0, self.n_coeff - len(desc)), 'constant')
                 
-                vector = np.real(desc).astype(np.float32)
+                vector = np.abs(desc).astype(np.float32)
         
         # L2 normalize within category
         norm = np.linalg.norm(vector)
@@ -627,10 +627,11 @@ class HSVHistogramExtractor(ColorExtractor):
         vector = np.concatenate([hist_h.flatten(), hist_s.flatten(), 
                                 hist_v.flatten()]).astype(np.float32)
         
-        # L2 normalize within category
-        norm = np.linalg.norm(vector)
+        # L2 normalize within category ||v||
+        norm = np.linalg.norm(vector) 
         if norm > 0:
             vector = vector / norm
+        #  [50] [150] = [200]
         
         return {
             'vector': vector,
