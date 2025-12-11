@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+
+# MongoDB client
+pymongo
+motor
+
+# YOLO + computer vision
+ultralytics
+opencv-python-headless
+numpy
+
+# Optional but recommended
+python-multipart    # if you upload files
+pydantic

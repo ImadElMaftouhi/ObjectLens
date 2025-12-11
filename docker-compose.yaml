@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  mongo:
+    build: ./db # uses db/Dockerfile (with init-mongo.js)
+    container_name: objectlens-mongo
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_DATABASE=objectlens
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db # persistent data
+
+  backend:
+    build: ./api # uses api/Dockerfile (FastAPI + YOLO + OpenCV)
+    container_name: objectlens-backend
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/objectlens
+    ports:
+      - "8000:8000"
+    volumes:
+      # your FastAPI source code
+      - ./api:/app
+
+      # images stay on host but are visible inside container at /data/images
+      - ./images:/data/images
+
+      # mapping files in project root, mounted into backend
+      # - ./mappings:/app/mappings
+
+      # YOLO models/weights
+      - ./models/yolo:/app/yolo
+
+  frontend:
+    build: ./frontend # uses frontend/Dockerfile (Vite + React)
+    container_name: objectlens-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173" # Vite dev server
+    volumes:
+      # React/Vite source code
+      - ./frontend:/usr/src/app
+
+volumes:
+  mongo_data:
