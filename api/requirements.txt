@@ -38,3 +38,9 @@ aiosqlite
 # Optional: For API documentation enhancement
 python-jose
 passlib
+
+# Jupyter Notebook
+jupyter
+jupyterlab
+ipywidgets
+matplotlib
