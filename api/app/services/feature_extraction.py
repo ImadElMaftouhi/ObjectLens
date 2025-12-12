@@ -558,7 +558,7 @@ class GaborExtractor(TextureExtractor):
                     (ksize, ksize), sigma, theta, lam, gamma, psi, ktype=cv2.CV_32F
                 )
                 response = cv2.filter2D(img, cv2.CV_32F, kernel)
-                energy = np.mean(response ** 2)
+                energy = np.mean(response ** 2) # type: ignore
                 features.append(energy)
         
         vector = np.array(features, dtype=np.float32)
@@ -711,7 +711,25 @@ class FeatureExtractionService:
     Manages multiple feature extractors and combines their outputs by category.
     """
     
-    def __init__(self, extractors: List[BaseFeatureExtractor]):
+    DEFAULT_WEIGHTS = {
+        'form': {
+            'fourier': 0.6,
+            'orientation': 0.4
+        },
+        'texture': {
+            'tamura': 0.5,
+            'gabor': 0.5
+        },
+        'color': {
+            'hsv_histogram': 0.5,
+            'dominant_colors': 0.5
+        },
+    }
+
+    def __init__(self,
+                extractors: List[BaseFeatureExtractor],
+                weights: Optional[Dict[str, Dict[str, float]]] = None
+                ):
         """
         Initialize with a list of feature extractors.
         
@@ -722,6 +740,7 @@ class FeatureExtractionService:
             ValueError: If duplicate extractor names found
         """
         self.extractors = extractors
+        self.weights = weights or self.DEFAULT_WEIGHTS
         self._validate_extractors()
         self._group_by_category()
     
@@ -787,21 +806,37 @@ class FeatureExtractionService:
             
             category_features = {}
             vectors = []
+            extractor_names = []
             
             for extractor in extractors:
                 feature_result = extractor.extract(image)
                 name = feature_result['name']
                 category_features[name] = feature_result
                 vectors.append(feature_result['vector'])
+                extractor_names.append(name)
             
-            # Create combined vector for this category
             if vectors:
-                combined = np.concatenate(vectors)
+                combined = []
+                
+                if category in self.weights:
+                    cat_weights = self.weights[category]
+                else:
+                    # Equal weights if not specified
+                    cat_weights = {name: 1.0 / len(vectors) for name in extractor_names}
+                
+                for vec, name in zip(vectors, extractor_names):
+                    weight = cat_weights.get(name, 1.0 / len(vectors))
+                    combined.append(np.float32(weight*vec))
+                combined = np.concatenate(combined)
+
                 # Normalize combined vector within category
                 norm = np.linalg.norm(combined)
                 if norm > 0:
                     combined = combined / norm
                 category_features['combined'] = combined
+            
+            else:
+                raise ValueError(f"Error : variable vectors returned as {type(vectors)} instead of List")
             
             result[category] = category_features
         
