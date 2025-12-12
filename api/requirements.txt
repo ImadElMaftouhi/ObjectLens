@@ -1,40 +1,18 @@
-# install requirements.txt
-# pip install -r api/requirements.txt
-# set PYTHONPATH=%CD%
-
-# FastAPI & Web Framework
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
 pydantic
 pydantic-settings
 
-# Machine Learning & Computer Vision
-ultralytics
-opencv-python
+pymongo
+
 numpy
+opencv-python-headless
 scikit-image
 scikit-learn
 scipy
-
-# Image Processing & Data Handling
 Pillow
-pandas
 
-# Similarity Search
-faiss-cpu
-
-# Utilities
 python-dotenv
 tqdm
-
-# CORS Support
-fastapi-cors
-
-# Optional: For async database operations (if needed in future)
-sqlalchemy
-aiosqlite
-
-# Optional: For API documentation enhancement
-python-jose
-passlib
+ultralytics

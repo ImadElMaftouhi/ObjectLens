@@ -1,93 +1,51 @@
 // db/init-mongo.js
-
-// Use the database defined in MONGO_INITDB_DATABASE or fallback
 const dbName = process.env.MONGO_INITDB_DATABASE || "objectlens"
 db = db.getSiblingDB(dbName)
 
-// =====================
-// images collection
-// =====================
+// Single collection: images (each document = one image with objects[])
 if (!db.getCollectionNames().includes("images")) {
   db.createCollection("images", {
     validator: {
       $jsonSchema: {
         bsonType: "object",
-        required: ["_id", "imagePath"],
+        required: ["_id", "image_path", "objects"],
         properties: {
-          _id: {
-            bsonType: "string",
-            description: "imageId as string"
-          },
-          imagePath: {
-            bsonType: "string",
-            description: "Path to image as seen by backend container"
-          }
-        },
-        additionalProperties: false
-      }
-    }
-  })
-}
-
-// =====================
-// objects collection
-// =====================
-if (!db.getCollectionNames().includes("objects")) {
-  db.createCollection("objects", {
-    validator: {
-      $jsonSchema: {
-        bsonType: "object",
-        required: ["_id", "imageId", "features"],
-        properties: {
-          _id: {
-            bsonType: "string",
-            description: "objectId as string"
-          },
-          imageId: {
-            bsonType: "string",
-            description: "references images._id"
-          },
-          features: {
-            bsonType: "object",
-            required: ["vector", "dim"],
-            properties: {
-              vector: {
-                bsonType: "array",
-                items: { bsonType: "double" }, // numbers
-                description: "L2-normalized concatenated feature vector"
-              },
-              dim: {
-                bsonType: "int",
-                description: "dimension of vector (length)"
-              },
-              parts: {
-                bsonType: "object",
-                required: [], // all optional
-                properties: {
-                  color: {
-                    bsonType: "array",
-                    items: { bsonType: "double" }
-                  },
-                  texture: {
-                    bsonType: "array",
-                    items: { bsonType: "double" }
-                  },
-                  shape: {
-                    bsonType: "array",
-                    items: { bsonType: "double" }
-                  }
+          _id: { bsonType: "string" },
+          image_path: { bsonType: "string" },
+          split: { bsonType: "string" },
+          width: { bsonType: "int" },
+          height: { bsonType: "int" },
+          objects: {
+            bsonType: "array",
+            items: {
+              bsonType: "object",
+              required: ["bbox", "class_id", "final_vector"],
+              properties: {
+                bbox: {
+                  bsonType: "array",
+                  items: { bsonType: "int" },
+                  minItems: 4,
+                  maxItems: 4
                 },
-                additionalProperties: true
+                class_id: { bsonType: "int" },
+                class_name: { bsonType: "string" },
+                confidence: { bsonType: "double" },
+                features: { bsonType: "object" }, // keep flexible
+                final_vector: {
+                  bsonType: "array",
+                  items: { bsonType: "double" }
+                },
+                vector_dim: { bsonType: "int" }
               }
-            },
-            additionalProperties: false
+            }
           }
         },
-        additionalProperties: false
+        additionalProperties: true
       }
     }
   })
-
-  // useful index: fast lookup by imageId
-  db.objects.createIndex({ imageId: 1 })
 }
+
+// Helpful indexes
+db.images.createIndex({ image_path: 1 })
+db.images.createIndex({ "objects.class_id": 1 })
