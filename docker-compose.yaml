@@ -45,7 +45,7 @@ services:
       - "5173:5173" # Vite dev server
     volumes:
       # React/Vite source code
-      - ./frontend:/usr/src/app
+      - ./frontend:/usr/src/app/frontend
 
 volumes:
   mongo_data:
