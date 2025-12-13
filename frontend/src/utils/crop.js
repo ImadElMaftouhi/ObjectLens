@@ -5,9 +5,7 @@ function clamp(v, min, max) {
 export async function cropToBlob(
   imageUrl,
   bbox,
-  padRatio = 0.03,
-  mime = "image/jpeg",
-  quality = 0.92
+  mime = "image/png" // lossless -> preserves pixels exactly (no recompression artifacts)
 ) {
   const img = new Image()
   img.crossOrigin = "anonymous"
@@ -21,13 +19,11 @@ export async function cropToBlob(
   const W = img.naturalWidth
   const H = img.naturalHeight
 
-  const padX = Math.round(bbox.w * padRatio)
-  const padY = Math.round(bbox.h * padRatio)
-
-  const x = clamp(bbox.x - padX, 0, W - 1)
-  const y = clamp(bbox.y - padY, 0, H - 1)
-  const w = clamp(bbox.w + 2 * padX, 1, W - x)
-  const h = clamp(bbox.h + 2 * padY, 1, H - y)
+  // No padding: crop exactly the bbox
+  const x = clamp(Math.round(bbox.x), 0, W - 1)
+  const y = clamp(Math.round(bbox.y), 0, H - 1)
+  const w = clamp(Math.round(bbox.w), 1, W - x)
+  const h = clamp(Math.round(bbox.h), 1, H - y)
 
   const canvas = document.createElement("canvas")
   canvas.width = w
@@ -36,9 +32,10 @@ export async function cropToBlob(
   const ctx = canvas.getContext("2d")
   ctx.drawImage(img, x, y, w, h, 0, 0, w, h)
 
-  const blob = await new Promise((resolve) =>
-    canvas.toBlob(resolve, mime, quality)
-  )
+  const blob = await new Promise((resolve) => {
+    // quality param is ignored for PNG (lossless)
+    canvas.toBlob(resolve, mime)
+  })
   if (!blob) throw new Error("Failed to crop image to blob")
 
   const previewUrl = URL.createObjectURL(blob)

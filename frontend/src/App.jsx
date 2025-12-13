@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { detectObjects, sendSelectedCrop, searchTopK } from "./api"
+import { detectObjects, searchTopK } from "./api"
 import { cropToBlob } from "./utils/crop"
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000"
@@ -15,7 +15,6 @@ export default function App() {
   const [crops, setCrops] = useState([])
   const [selectedIndex, setSelectedIndex] = useState(null)
 
-  // Top-K
   const [topK, setTopK] = useState(20)
   const [topkResult, setTopkResult] = useState(null)
 
@@ -43,7 +42,7 @@ export default function App() {
     resetAll()
     setFile(f)
     setImageUrl(URL.createObjectURL(f))
-    setStatus("Image loaded. Click Detect Objects.")
+    setStatus("Image loaded. Click Detect.")
   }
 
   async function runDetect() {
@@ -67,7 +66,6 @@ export default function App() {
 
       const cropItems = []
       for (const det of res.detections) {
-        // IMPORTANT: your crop util expects bbox = {x,y,w,h}
         const { blob, previewUrl } = await cropToBlob(imageUrl, det.bbox)
         cropItems.push({ det, blob, previewUrl })
       }
@@ -75,7 +73,7 @@ export default function App() {
       setCrops(cropItems)
       setSelectedIndex(null)
       setTopkResult(null)
-      setStatus("Pick an object crop, then click Search Top-K.")
+      setStatus("Select a crop, then Search Top-K.")
     } catch (err) {
       console.error(err)
       setStatus(err?.message || "Detection failed")
@@ -84,31 +82,18 @@ export default function App() {
     }
   }
 
-  async function sendSelection() {
+  async function runTopK() {
     if (!selected || !detectResult) return
     setLoading(true)
-    setStatus("Sending selected object + running Top-K search...")
+    setStatus("Searching Top-K...")
 
     try {
       const det = selected.det
-
-      // Optional debug endpoint (doesn't affect search)
-      await sendSelectedCrop({
-        blob: selected.blob,
-        filename: `crop_${detectResult.image_id || "img"}_${det.id}.jpg`,
-        meta: {
-          image_id: detectResult.image_id,
-          source_detection_id: det.id,
-          class_name: det.class_name,
-          confidence: det.confidence
-        }
-      })
-
-      // Real retrieval
       const k = Math.max(1, Math.min(200, Number(topK) || 20))
+
       const topk = await searchTopK({
         blob: selected.blob,
-        filename: `query_${detectResult.image_id || "img"}_${det.id}.jpg`,
+        filename: `query_${detectResult.image_id || "img"}_${det.id}.png`,
         topK: k
       })
 
@@ -129,244 +114,435 @@ export default function App() {
     ? {
         class_name: selected.det.class_name,
         id: selected.det.id,
-        bbox: selected.det.bbox
+        bbox: selected.det.bbox,
+        confidence: selected.det.confidence
       }
     : null
 
+  const styles = {
+    page: {
+      minHeight: "100vh",
+      background: "#0b0f17",
+      color: "#eaeef7",
+      fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
+      padding: 24
+    },
+    container: { maxWidth: 1200, margin: "0 auto" },
+    header: {
+      display: "flex",
+      alignItems: "flex-end",
+      justifyContent: "space-between",
+      gap: 16,
+      marginBottom: 18
+    },
+    titleWrap: { display: "flex", flexDirection: "column", gap: 6 },
+    title: { fontSize: 22, fontWeight: 800, margin: 0 },
+    subtitle: { margin: 0, opacity: 0.8, fontSize: 13 },
+    pill: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 8,
+      padding: "8px 12px",
+      borderRadius: 999,
+      border: "1px solid #243045",
+      background: "#0f1626",
+      fontSize: 12,
+      opacity: 0.9
+    },
+    grid: {
+      display: "grid",
+      gridTemplateColumns: "1.1fr 0.9fr",
+      gap: 16
+    },
+    card: {
+      border: "1px solid #1f2a3d",
+      background: "linear-gradient(180deg, #0f1626 0%, #0b0f17 100%)",
+      borderRadius: 16,
+      padding: 16,
+      boxShadow: "0 8px 24px rgba(0,0,0,0.35)"
+    },
+    cardTitle: { margin: 0, fontSize: 14, opacity: 0.9, fontWeight: 700 },
+    row: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
+    btn: (variant = "primary") => {
+      const base = {
+        borderRadius: 12,
+        padding: "10px 12px",
+        fontWeight: 700,
+        fontSize: 13,
+        border: "1px solid transparent",
+        cursor: "pointer",
+        transition: "transform 0.05s ease"
+      }
+      if (variant === "primary")
+        return {
+          ...base,
+          background: "#4f7cff",
+          borderColor: "#4f7cff",
+          color: "#061021"
+        }
+      if (variant === "ghost")
+        return {
+          ...base,
+          background: "transparent",
+          borderColor: "#243045",
+          color: "#eaeef7"
+        }
+      return base
+    },
+    btnDisabled: { opacity: 0.5, cursor: "not-allowed" },
+    input: {
+      borderRadius: 12,
+      border: "1px solid #243045",
+      background: "#0b0f17",
+      color: "#eaeef7",
+      padding: "10px 12px",
+      fontSize: 13,
+      outline: "none"
+    },
+    status: {
+      marginTop: 12,
+      padding: "10px 12px",
+      borderRadius: 12,
+      border: "1px solid #243045",
+      background: "#0b0f17",
+      fontSize: 13,
+      opacity: 0.95
+    },
+    imgFrame: {
+      marginTop: 12,
+      borderRadius: 14,
+      overflow: "hidden",
+      border: "1px solid #243045",
+      background: "#050812"
+    },
+    mainImg: {
+      width: "100%",
+      maxHeight: 420,
+      objectFit: "contain",
+      display: "block"
+    },
+    sectionGap: { marginTop: 14 },
+    cropGrid: {
+      marginTop: 12,
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+      gap: 12
+    },
+    cropBtn: (selected) => ({
+      textAlign: "left",
+      borderRadius: 14,
+      border: selected ? "1px solid #4f7cff" : "1px solid #243045",
+      background: selected ? "rgba(79,124,255,0.10)" : "#0b0f17",
+      padding: 10,
+      cursor: "pointer"
+    }),
+    cropImg: {
+      width: "100%",
+      height: 120,
+      objectFit: "contain",
+      borderRadius: 12,
+      background: "#000",
+      border: "1px solid #1f2a3d"
+    },
+    label: { fontSize: 12, opacity: 0.85 },
+    strong: { fontSize: 13, fontWeight: 800 },
+    resultGrid: {
+      marginTop: 12,
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+      gap: 12
+    },
+    resultCard: {
+      borderRadius: 14,
+      border: "1px solid #243045",
+      background: "#0b0f17",
+      padding: 10
+    },
+    resultImg: {
+      width: "100%",
+      height: 150,
+      objectFit: "contain",
+      borderRadius: 12,
+      background: "#000",
+      border: "1px solid #1f2a3d"
+    }
+  }
+
   return (
-    <div
-      style={{
-        maxWidth: 1100,
-        margin: "0 auto",
-        padding: 24,
-        fontFamily: "system-ui, Arial"
-      }}
-    >
-      <h2 style={{ marginBottom: 6 }}>ObjectLens — Detection + Top-K</h2>
-      <div style={{ opacity: 0.8, marginBottom: 18 }}>
-        Upload image → YOLO detects → pick an object crop → Top-K retrieval
-      </div>
-
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-        {/* Left */}
-        <div
-          style={{
-            flex: 1,
-            border: "1px solid #333",
-            borderRadius: 12,
-            padding: 16
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              alignItems: "center",
-              marginBottom: 12
-            }}
-          >
-            <input type="file" accept="image/*" onChange={onPickFile} />
-            <button disabled={!file || loading} onClick={runDetect}>
-              Detect Objects
-            </button>
-            <button disabled={loading} onClick={resetAll}>
-              Reset
-            </button>
-
-            <div
-              style={{
-                marginLeft: "auto",
-                display: "flex",
-                gap: 8,
-                alignItems: "center"
-              }}
-            >
-              <span style={{ opacity: 0.8 }}>TopK:</span>
-              <input
-                type="number"
-                min={1}
-                max={200}
-                value={topK}
-                onChange={(e) => setTopK(e.target.value)}
-                style={{ width: 80 }}
-              />
-            </div>
+    <div style={styles.page}>
+      <div style={styles.container}>
+        {/* Header */}
+        <div style={styles.header}>
+          <div style={styles.titleWrap}>
+            <h1 style={styles.title}>ObjectLens</h1>
+            <p style={styles.subtitle}>
+              Upload an image → detect objects → select one crop → retrieve
+              similar objects (Top-K)
+            </p>
           </div>
 
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt="uploaded"
-              style={{
-                width: "100%",
-                maxHeight: 360,
-                objectFit: "contain",
-                borderRadius: 10
-              }}
-            />
-          ) : (
-            <div style={{ padding: 24, opacity: 0.7 }}>
-              Pick an image to start.
-            </div>
-          )}
-
-          <div style={{ marginTop: 12, opacity: 0.9 }}>
-            <b>Status:</b> {status || "Idle"}
+          <div style={styles.pill}>
+            <span style={{ opacity: 0.8 }}>API</span>
+            <span style={{ fontWeight: 800 }}>{API_BASE}</span>
           </div>
         </div>
 
-        {/* Right */}
-        <div
-          style={{
-            flex: 1.2,
-            border: "1px solid #333",
-            borderRadius: 12,
-            padding: 16
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center"
-            }}
-          >
-            <h3 style={{ margin: 0 }}>Detected Objects</h3>
-            <button disabled={!selected || loading} onClick={sendSelection}>
-              Search Top-K for Selected
-            </button>
-          </div>
-
-          {!crops.length ? (
-            <div style={{ padding: 18, opacity: 0.7 }}>
-              No crops yet. Run detection first.
-            </div>
-          ) : (
+        {/* Layout */}
+        <div style={styles.grid}>
+          {/* Left: Upload + image */}
+          <div style={styles.card}>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                gap: 12,
-                marginTop: 12
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline"
               }}
             >
-              {crops.map((c, idx) => {
-                const isSel = idx === selectedIndex
-                return (
-                  <button
-                    key={c.det.id}
-                    onClick={() => setSelectedIndex(idx)}
-                    style={{
-                      textAlign: "left",
-                      padding: 10,
-                      borderRadius: 12,
-                      border: isSel ? "2px solid #fff" : "1px solid #444",
-                      background: isSel ? "#222" : "#111",
-                      cursor: "pointer"
-                    }}
-                  >
-                    <img
-                      src={c.previewUrl}
-                      alt={`crop-${c.det.id}`}
-                      style={{
-                        width: "100%",
-                        height: 120,
-                        objectFit: "contain",
-                        borderRadius: 10,
-                        background: "#000"
-                      }}
-                    />
-                    <div style={{ marginTop: 8, fontSize: 13 }}>
-                      <div>
-                        <b>{c.det.class_name}</b>
-                      </div>
-                      <div style={{ opacity: 0.8 }}>
-                        conf: {Number(c.det.confidence).toFixed(3)}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {selectedInfo ? (
-            <div
-              style={{
-                marginTop: 14,
-                paddingTop: 12,
-                borderTop: "1px solid #333",
-                opacity: 0.9
-              }}
-            >
-              <b>Selected:</b> {selectedInfo.class_name} (id={selectedInfo.id})
-              <div style={{ fontSize: 13, opacity: 0.8 }}>
-                bbox: x={selectedInfo.bbox.x}, y={selectedInfo.bbox.y}, w=
-                {selectedInfo.bbox.w}, h={selectedInfo.bbox.h}
+              <h2 style={styles.cardTitle}>1) Upload & Detect</h2>
+              <div style={{ fontSize: 12, opacity: 0.75 }}>
+                {loading ? "Working..." : "Idle"}
               </div>
             </div>
-          ) : null}
 
-          {/* Top-K results */}
-          {topkResult?.ok ? (
-            <div
-              style={{
-                marginTop: 14,
-                paddingTop: 12,
-                borderTop: "1px solid #333"
-              }}
-            >
-              <h4 style={{ margin: "0 0 8px 0" }}>Top-K Results</h4>
+            <div style={{ ...styles.row, marginTop: 12 }}>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={onPickFile}
+                style={styles.input}
+              />
+
+              <button
+                onClick={runDetect}
+                disabled={!file || loading}
+                style={{
+                  ...styles.btn("primary"),
+                  ...(!file || loading ? styles.btnDisabled : null)
+                }}
+              >
+                Detect
+              </button>
+
+              <button
+                onClick={resetAll}
+                disabled={loading}
+                style={{
+                  ...styles.btn("ghost"),
+                  ...(loading ? styles.btnDisabled : null)
+                }}
+              >
+                Reset
+              </button>
 
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-                  gap: 12
+                  marginLeft: "auto",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8
                 }}
               >
-                {(topkResult.best_images || []).map((r, i) => {
-                  // image_url from backend is like "/dataset/images/val/xxx.jpg"
-                  const src = r.image_url?.startsWith("http")
-                    ? r.image_url
-                    : `${API_BASE}${r.image_url || ""}`
+                <span style={{ fontSize: 12, opacity: 0.8 }}>Top-K</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={topK}
+                  onChange={(e) => setTopK(e.target.value)}
+                  style={{ ...styles.input, width: 90 }}
+                />
+              </div>
+            </div>
 
-                  return (
-                    <div
-                      key={`${r.image_path}-${i}`}
+            <div style={styles.imgFrame}>
+              {imageUrl ? (
+                <img src={imageUrl} alt="uploaded" style={styles.mainImg} />
+              ) : (
+                <div style={{ padding: 18, opacity: 0.75 }}>
+                  Pick an image to start.
+                </div>
+              )}
+            </div>
+
+            <div style={styles.status}>
+              <b>Status:</b> {status || "Ready."}
+            </div>
+          </div>
+
+          {/* Right: Selection + Search */}
+          <div style={styles.card}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline"
+              }}
+            >
+              <h2 style={styles.cardTitle}>2) Select object & Search</h2>
+              <button
+                onClick={runTopK}
+                disabled={!selected || loading}
+                style={{
+                  ...styles.btn("primary"),
+                  ...(!selected || loading ? styles.btnDisabled : null)
+                }}
+              >
+                Search Top-K
+              </button>
+            </div>
+
+            {/* Selected preview */}
+            <div style={styles.sectionGap}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={styles.label}>Selected object</div>
+                  {selectedInfo ? (
+                    <div style={{ marginTop: 4 }}>
+                      <div style={styles.strong}>
+                        {selectedInfo.class_name}{" "}
+                        <span style={{ opacity: 0.7 }}>
+                          · id={selectedInfo.id}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>
+                        conf: {Number(selectedInfo.confidence).toFixed(3)} ·
+                        bbox: x={selectedInfo.bbox.x}, y={selectedInfo.bbox.y},
+                        w={selectedInfo.bbox.w}, h={selectedInfo.bbox.h}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
+                      No crop selected yet.
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    width: 160,
+                    height: 120,
+                    borderRadius: 14,
+                    border: "1px solid #243045",
+                    background: "#050812",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden"
+                  }}
+                >
+                  {selected?.previewUrl ? (
+                    <img
+                      src={selected.previewUrl}
+                      alt="selected-crop"
                       style={{
-                        border: "1px solid #333",
-                        borderRadius: 12,
-                        padding: 10,
-                        background: "#111"
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        background: "#000"
                       }}
-                    >
-                      <div
-                        style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}
+                    />
+                  ) : (
+                    <div style={{ fontSize: 12, opacity: 0.6 }}>
+                      No selection
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Crops grid */}
+            <div style={styles.sectionGap}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline"
+                }}
+              >
+                <div style={styles.label}>Detected crops</div>
+                <div style={{ fontSize: 12, opacity: 0.75 }}>
+                  {crops.length ? `${crops.length} item(s)` : "—"}
+                </div>
+              </div>
+
+              {!crops.length ? (
+                <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
+                  Run detection to see crops.
+                </div>
+              ) : (
+                <div style={styles.cropGrid}>
+                  {crops.map((c, idx) => {
+                    const isSel = idx === selectedIndex
+                    return (
+                      <button
+                        key={c.det.id}
+                        onClick={() => setSelectedIndex(idx)}
+                        style={styles.cropBtn(isSel)}
+                        title={`Select ${c.det.class_name} (id=${c.det.id})`}
                       >
-                        #{i + 1} score: {Number(r.score).toFixed(4)}
-                      </div>
+                        <img
+                          src={c.previewUrl}
+                          alt={`crop-${c.det.id}`}
+                          style={styles.cropImg}
+                        />
+                        <div style={{ marginTop: 8, fontSize: 12 }}>
+                          <div style={{ fontWeight: 800 }}>
+                            {c.det.class_name}
+                          </div>
+                          <div style={{ opacity: 0.75 }}>
+                            conf: {Number(c.det.confidence).toFixed(3)}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
-                      <img
-                        src={src}
-                        alt={r.image_path}
-                        style={{
-                          width: "100%",
-                          height: 140,
-                          objectFit: "contain",
-                          borderRadius: 10,
-                          background: "#000"
-                        }}
-                        onError={(e) => {
-                          // helpful visual hint if URL is wrong
-                          e.currentTarget.style.opacity = "0.3"
-                        }}
-                      />
+        {/* Results */}
+        {topkResult?.ok ? (
+          <div style={{ ...styles.card, marginTop: 16 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline"
+              }}
+            >
+              <h2 style={styles.cardTitle}>Top-K results</h2>
+              <div style={{ fontSize: 12, opacity: 0.75 }}>
+                {topkResult?.best_images?.length || 0} returned
+              </div>
+            </div>
 
-                      <div style={{ fontSize: 12, marginTop: 8 }}>
-                        <b>{r.best_class_name}</b>
-                      </div>
+            <div style={styles.resultGrid}>
+              {(topkResult.best_images || []).map((r, i) => {
+                const src = r.image_url?.startsWith("http")
+                  ? r.image_url
+                  : `${API_BASE}${r.image_url || ""}`
 
+                return (
+                  <div key={`${r.image_path}-${i}`} style={styles.resultCard}>
+                    <div
+                      style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}
+                    >
+                      #{i + 1} · score: {Number(r.score).toFixed(4)}
+                    </div>
+
+                    <img
+                      src={src}
+                      alt={r.image_path}
+                      style={styles.resultImg}
+                      onError={(e) => {
+                        e.currentTarget.style.opacity = "0.25"
+                      }}
+                    />
+
+                    <div style={{ marginTop: 8, fontSize: 12 }}>
+                      <div style={{ fontWeight: 900 }}>{r.best_class_name}</div>
                       <div
                         style={{
                           fontSize: 11,
@@ -377,12 +553,12 @@ export default function App() {
                         {r.image_path}
                       </div>
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
