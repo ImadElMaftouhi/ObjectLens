@@ -5,10 +5,10 @@
 
 import numpy as np, json, time
 from tqdm import tqdm
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Tuple, Optional, Union
 from scipy.spatial.distance import euclidean, cosine
 from pathlib import Path
-from feature_extraction import (
+from api.app.services.feature_extraction import (
     FourierDescriptorExtractor,
     OrientationHistogramExtractor,
     TamuraExtractor,
@@ -52,7 +52,7 @@ def _to_numpy(obj: Any) -> Any:
 
 def load_aggregated_features(query_image_path: str | Path) -> Dict[str, Any]:
     """
-    Load precomputed per-image features from JSON files.
+    Load precomputed per-image Object-level features from JSON files.
     
     Returns:
         Dictionary mapping image stem to their features
@@ -62,7 +62,7 @@ def load_aggregated_features(query_image_path: str | Path) -> Dict[str, Any]:
     if not features_dir.exists():
         raise FileNotFoundError(f"Features directory not found: {features_dir}")
     
-    # Load all JSON files from the features directory
+    # Load all JSON files from the features directory except the query image
     aggregated = {}
     json_files = [file_path for file_path in features_dir.glob("*.json") if file_path != Path(query_image_path).name]
     
@@ -79,7 +79,7 @@ def load_aggregated_features(query_image_path: str | Path) -> Dict[str, Any]:
     return aggregated
 
 
-def extract_query_features(query_image_path: str | Path) -> Dict[str, Any]:
+def extract_query_features(query_image: Union[str, np.ndarray, Path]) -> Dict[str, Any]:
     """
     Extract features from a query image.
     Args:
@@ -87,7 +87,7 @@ def extract_query_features(query_image_path: str | Path) -> Dict[str, Any]:
     Returns:
         Dictionary of extracted features
     """
-    return FEATURE_SERVICE.extract(query_image_path)
+    return FEATURE_SERVICE.extract(query_image)
 
 
 def search_similar_images(

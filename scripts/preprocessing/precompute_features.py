@@ -23,7 +23,8 @@ from api.app.services.feature_extraction import (
 DATA_ROOT = Path("imagenet_yolo15/images")
 OUT_ROOT = Path("features/all")
 LABELS_ROOT = Path("imagenet_yolo15/labels")
-MODEL_PATH = Path("api/models/yolo/yolov8n.pt")
+# MODEL_PATH = Path("api/models/yolo/yolov8n.pt")
+MODEL_PATH = Path("yolo/model/weights/best.pt")
 EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".gif", ".webp", ".JPEG", ".JPG"}
 
 EXTRACTORS = [
@@ -66,7 +67,7 @@ def _to_serializable(obj: Any) -> Any:
 
 def extract_object_features(image_path: Path) -> List[Dict[str, Any]]:
     img = cv2.imread(str(image_path))
-    results = MODEL(img)[0]
+    results = MODEL.predict(img)[0]
 
     objects = []
     for i, box in enumerate(results.boxes):
@@ -84,11 +85,11 @@ def extract_object_features(image_path: Path) -> List[Dict[str, Any]]:
 
         features = FEATURE_SERVICE.extract(crop)
 
-        # Weighted final_vector (example weights: form 2.0, texture 3.0, color 1.0)
+        # Weighted final_vector
         final_vector = np.concatenate([
-            2.0 * features['form']['combined'],
-            3.0 * features['texture']['combined'],
-            1.0 * features['color']['combined'],
+            0.6 * features['form']['combined'],
+            0.3 * features['texture']['combined'],
+            0.1 * features['color']['combined'],
         ])
         norm = np.linalg.norm(final_vector)
         if norm > 0:
@@ -137,38 +138,28 @@ def main():
         print(f"Folder {folder} done. Time: {mins}m {secs}s")
 
 
+def test():
+    img_path = DATA_ROOT / "train" / "n00007846_6247.JPEG"
+    # img_path = DATA_ROOT / "train" / "n02124075_428.JPEG"
+
+    start_time = time.time()
+
+    stem = img_path.stem
+    out_file = f"{stem}.json"
+
+    objects = extract_object_features(img_path)
+
+    result = {
+        "image_path": str(img_path.relative_to(DATA_ROOT)),
+        "objects": objects
+    }
+
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(_to_serializable(result), f, indent=4)
+
+    elapsed = time.time() - start_time
+    mins, secs = divmod(int(elapsed), 60)
+
 if __name__=="__main__":
+    # test()
     main()
-    # for folder in ["train", "val"]:
-    #     folder_path = DATA_ROOT / folder
-
-    #     # ensure output dir exists
-    #     if not OUT_ROOT.exists():
-    #         OUT_ROOT.mkdir(parents=True, exist_ok=True)
-
-    #     images = [p for p in folder_path.rglob("*") if p.suffix in EXTS and p.is_file()]
-
-    #     start_time = time.time()
-
-    #     aggregated: Dict[str, Any] = {}
-
-    #     for idx, img_path in enumerate(images, start=1):
-    #         key = str(img_path.relative_to(DATA_ROOT))
-
-    #         result = FEATURE_SERVICE.extract(img_path)
-    #         # store per-image file (kept for compatibility)
-    #         stem = img_path.stem
-    #         out_file = OUT_ROOT / f"{stem}.json"
-    #         with open(out_file, "w", encoding="utf-8") as f:
-    #             json.dump(_to_serializable(result), f, indent=4)
-
-    #         # add to aggregated dict
-    #         aggregated[key] = _to_serializable(result)
-
-    #         if idx % 100 == 0:
-    #             elapsed = time.time() - start_time
-    #             print(f"Processed {idx}/{len(images)} images in {elapsed:.2f} seconds")
-
-    #     elapsed = time.time() - start_time
-    #     mins, secs = divmod(int(elapsed), 60)
-    #     print(f"Done processing folder {folder}. Total time: {mins:.2f} mins and {secs:.2f} seconds")

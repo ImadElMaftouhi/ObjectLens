@@ -881,9 +881,9 @@ class SimilarityComputer:
             'dominant_colors': 0.5
         },
         'category_weights': {
-            'form': 0.33,
-            'texture': 0.34,
-            'color': 0.33
+            'form': 0.6,
+            'texture': 0.3,
+            'color': 0.1
         }
     }
     
