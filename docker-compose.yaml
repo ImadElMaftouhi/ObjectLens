@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  mongo:
+    build: ./db
+    container_name: objectlens-mongo
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_DATABASE=objectlens
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build: ./api
+    container_name: objectlens-backend
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/objectlens
+
+      # YOLO
+      - YOLO_WEIGHTS=/app/models/yolo/best.pt
+      - YOLO_CONF=0.25
+      - YOLO_IOU=0.45
+      - YOLO_IMGSZ=640
+
+      # storage/dataset mounts
+      - IMAGE_STORE_DIR=/data/images
+      - DATASET_ROOT=/data/imagenet_yolo15
+
+      # Option A essentials
+      - CORS_ORIGINS=http://localhost:5173
+      - THUMB_SIZE=224
+      #
+      - YOLO_CONFIG_DIR=/tmp/Ultralytics
+      - DATASET_SPLIT=val
+      - CATEGORY_WEIGHTS_FORM=0.33
+      - CATEGORY_WEIGHTS_TEXTURE=0.34
+      - CATEGORY_WEIGHTS_COLOR=0.33
+
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app
+      - ./images:/data/images
+      # If your dataset folder is actually under ./data/imagenet_yolo15, change this line accordingly
+      - ./imagenet_yolo15:/data/imagenet_yolo15:ro
+
+      # speed up rebuilds (pip download cache)
+      - pip_cache:/root/.cache/pip
+
+  frontend:
+    build: ./frontend
+    container_name: objectlens-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # Used by Vite in the browser
+      - VITE_API_BASE=http://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/usr/src/app/frontend
+
+volumes:
+  mongo_data:
+  pip_cache:
