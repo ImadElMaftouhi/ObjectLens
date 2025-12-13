@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 
 
 class BBoxXYWH(BaseModel):
@@ -11,17 +11,12 @@ class BBoxXYWH(BaseModel):
 
 class DetectionOut(BaseModel):
     id: int
-    bbox_xyxy: List[int]          # [x1, y1, x2, y2]
-    bbox: BBoxXYWH                # ✅ added (what the UI uses)
+    bbox_xyxy: List[int]  # [x1, y1, x2, y2]
+    bbox: BBoxXYWH        # what the UI uses (x, y, w, h)
     class_id: int
     class_name: str
     confidence: float
-    thumbnail: Optional[str] = None  # data URL
 
 
 class DetectResponse(BaseModel):
     detections: List[DetectionOut]
-
-
-class SearchRequest(BaseModel):
-    thumbnail: str  # data:image/jpeg;base64,...

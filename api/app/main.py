@@ -18,7 +18,7 @@ app.add_middleware(
 )
 
 # ✅ THIS is where your indexed dataset images really are:
-# /data/imagenet_yolo15/images/val/...
+# /data/imagenet_yolo15/images/train/...  (or val, depending on what you indexed)
 app.mount("/dataset", StaticFiles(directory=settings.DATASET_ROOT), name="dataset")
 
 app.include_router(detect_router, prefix="/api")

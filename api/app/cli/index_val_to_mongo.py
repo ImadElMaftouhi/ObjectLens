@@ -10,9 +10,18 @@ from tqdm import tqdm
 
 from app.core.config import settings
 from app.db.mongo import get_collection
-from app.services.features import build_feature_service, extract_object_features
 from app.services.yolo_service import YoloService
 
+# ✅ Use ONLY what exists in feature_extraction.py
+from app.services.feature_extraction import (
+    FeatureExtractionService,
+    FourierDescriptorExtractor,
+    OrientationHistogramExtractor,
+    TamuraExtractor,
+    GaborExtractor,
+    HSVHistogramExtractor,
+    DominantColorsExtractor,
+)
 
 SUPPORTED_EXTS = {
     ".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp",
@@ -80,9 +89,10 @@ def crop(img_bgr: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
 def to_jsonable(x: Any) -> Any:
     """
     Recursively convert numpy types to plain Python types for MongoDB.
+    Keeps the structure returned by FeatureExtractionService.extract().
     """
     if isinstance(x, np.ndarray):
-        return x.astype(float).tolist()  # ensure JSON-friendly
+        return x.astype(float).tolist()
     if isinstance(x, (np.float32, np.float64)):
         return float(x)
     if isinstance(x, (np.int32, np.int64)):
@@ -94,10 +104,26 @@ def to_jsonable(x: Any) -> Any:
     return x
 
 
+def build_feature_service_from_feature_extraction_py() -> FeatureExtractionService:
+    """
+    ✅ Build the service using the same extractors defined in feature_extraction.py.
+    No new method, no alternative representation.
+    """
+    extractors = [
+        FourierDescriptorExtractor(n_coeff=40),
+        OrientationHistogramExtractor(bins=36),
+        TamuraExtractor(kmax=4, n_bins=16),
+        GaborExtractor(n_scales=3, n_orientations=4),
+        HSVHistogramExtractor(bins=32, normalize=True),
+        DominantColorsExtractor(n_colors=3),
+    ]
+    return FeatureExtractionService(extractors)
+
+
 def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], drop: bool) -> Dict[str, Any]:
     root = Path(dataset_root)
 
-    # ✅ get class names from YOLO weights
+    # ✅ get class names from YOLO weights (single source of truth)
     yolo = YoloService(
         weights_path=settings.YOLO_WEIGHTS,
         conf=settings.YOLO_CONF,
@@ -106,7 +132,7 @@ def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], dr
     )
     class_names: Dict[int, str] = yolo.class_names  # {id: name}
 
-    service = build_feature_service()
+    service = build_feature_service_from_feature_extraction_py()
     col = get_collection("images")
 
     if drop:
@@ -143,17 +169,16 @@ def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], dr
             class_id, x1, y1, x2, y2 = parsed
             obj_crop = crop(img, x1, y1, x2, y2)
 
-            feats, final_vec = extract_object_features(service, obj_crop)
+            # ✅ Use feature_extraction.py "as-is"
+            feats = service.extract(obj_crop, categories=["form", "texture", "color"])
 
             objects.append({
                 "bbox": [int(x1), int(y1), int(x2), int(y2)],
                 "class_id": int(class_id),
                 "class_name": class_names.get(int(class_id), str(class_id)),
                 "confidence": 1.0,
-                # ✅ FIX: make features JSON/Mongo friendly
+                # ✅ Store only what feature_extraction.py returns (no final_vector)
                 "features": to_jsonable(feats),
-                "final_vector": to_jsonable(final_vec),  # list[float]
-                "vector_dim": int(len(final_vec)),
             })
 
         doc = {
@@ -175,7 +200,8 @@ def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], dr
 def main():
     parser = argparse.ArgumentParser(description="Index dataset split objects into MongoDB.")
     parser.add_argument("--dataset-root", default=settings.DATASET_ROOT)
-    parser.add_argument("--split", default=getattr(settings, "DATASET_SPLIT", "val"))
+    # ✅ default to TRAIN now
+    parser.add_argument("--split", default="train")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--drop", action="store_true")
     args = parser.parse_args()

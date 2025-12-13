@@ -19,7 +19,8 @@ if (!db.getCollectionNames().includes("images")) {
             bsonType: "array",
             items: {
               bsonType: "object",
-              required: ["bbox", "class_id", "final_vector"],
+              // ✅ final_vector removed; features is now the required payload for retrieval
+              required: ["bbox", "class_id", "features"],
               properties: {
                 bbox: {
                   bsonType: "array",
@@ -30,13 +31,11 @@ if (!db.getCollectionNames().includes("images")) {
                 class_id: { bsonType: "int" },
                 class_name: { bsonType: "string" },
                 confidence: { bsonType: "double" },
-                features: { bsonType: "object" }, // keep flexible
-                final_vector: {
-                  bsonType: "array",
-                  items: { bsonType: "double" }
-                },
-                vector_dim: { bsonType: "int" }
-              }
+
+                // ✅ keep flexible: it contains nested vectors/metadata/combined
+                features: { bsonType: "object" }
+              },
+              additionalProperties: true
             }
           }
         },
