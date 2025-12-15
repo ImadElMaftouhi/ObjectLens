@@ -1,158 +1,54 @@
-"""
-Modular Feature Extraction System
-
-This module provides a flexible, extensible framework for extracting various
-image features organized into three categories: forms, textures, and colors.
-
-Architecture:
-    BaseFeatureExtractor (abstract)
-        ├── FormExtractor (abstract, category='form')
-        │   ├── FourierDescriptorExtractor
-        │   ├── OrientationHistogramExtractor
-        │   └── (future: HuMomentsExtractor, etc.)
-        │
-        ├── TextureExtractor (abstract, category='texture')
-        │   ├── TamuraExtractor
-        │   ├── GaborExtractor
-        │   └── (future: LBPExtractor, etc.)
-        │
-        └── ColorExtractor (abstract, category='color')
-            ├── HSVHistogramExtractor
-            ├── DominantColorsExtractor
-            └── (future: ColorMomentsExtractor, etc.)
-
-Usage:
-    # Initialize extractors
-    fourier = FourierDescriptorExtractor(n_coeff=40)
-    orientation = OrientationHistogramExtractor(bins=36)
-    tamura = TamuraExtractor()
-    gabor = GaborExtractor()
-    hsv = HSVHistogramExtractor(bins=32)
-    dominant = DominantColorsExtractor(n_colors=3)
-    
-    # Create service
-    service = FeatureExtractionService([fourier, orientation, tamura, gabor, hsv, dominant])
-    
-    # Extract features (all categories by default)
-    features = service.extract('image.jpg')
-    
-    # Or select specific categories
-    features = service.extract('image.jpg', categories=['form', 'texture'])
-    
-    # Compute similarity
-    computer = SimilarityComputer()
-    similarity = computer.compute(features1, features2, selected_categories=['form', 'texture'])
-"""
-
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union, Any, Tuple
 import numpy as np
 import cv2
 from pathlib import Path
 
-
 # ============================================================================
 # BASE CLASSES
 # ============================================================================
 
 class BaseFeatureExtractor(ABC):
-    """
-    Abstract base class for all feature extractors.
-    
-    Each feature extractor must implement:
-    - extract(): Extract features from an image
-    - get_feature_name(): Return a unique name for this extractor
-    - get_feature_dim(): Return the dimension of the feature vector
-    """
-    
+    """Abstract base class for all feature extractors."""
+
     def __init__(self, name: Optional[str] = None):
-        """
-        Initialize the feature extractor.
-        
-        Args:
-            name: Optional custom name. If not provided, uses get_feature_name()
-        """
         self._name = name or self.get_feature_name()
 
     @abstractmethod
     def extract(self, image: Union[str, np.ndarray, Path]) -> Dict[str, Any]:
-        """
-        Extract features from an image.
-        
-        Args:
-            image: Path to image file, or numpy array (BGR or RGB)
-            
-        Returns:
-            Dictionary containing:
-            - 'vector': numpy array of feature vector (normalized within category)
-            - 'metadata': dict with extractor-specific settings
-            - 'name': name of the feature extractor
-        """
+        """Extract features from the input image."""
         pass
-    
+
     @abstractmethod
     def get_feature_name(self) -> str:
-        """
-        Return a unique name for this feature extractor.
-        
-        Returns:
-            String identifier (e.g., 'fourier', 'tamura', 'hsv_histogram')
-        """
+        """Return the name of the feature."""
         pass
-    
+
     @abstractmethod
     def get_feature_dim(self) -> int:
-        """
-        Return the dimension of the feature vector.
-        
-        Returns:
-            Integer dimension
-        """
+        """Return the dimensionality of the feature vector."""
         pass
-    
+
     @abstractmethod
     def get_category(self) -> str:
-        """
-        Return the category of this extractor.
-        
-        Returns:
-            'form', 'texture', or 'color'
-        """
+        """Return the category (form, texture, color)."""
         pass
-    
+
     def _load_image(self, image: Union[str, np.ndarray, Path]) -> np.ndarray:
-        """
-        Helper method to load image from path or return array.
-        
-        Args:
-            image: Path to image or numpy array
-            
-        Returns:
-            Grayscale image as numpy array (float32, 0-255)
-        """
+        """Load image as grayscale float32."""
         if isinstance(image, (str, Path)):
-            img = cv2.imread(str(image), cv2.IMREAD_GRAYSCALE)  
+            img = cv2.imread(str(image), cv2.IMREAD_GRAYSCALE)
             if img is None:
                 raise ValueError(f"Could not load image: {image}")
             return img.astype(np.float32)
         elif isinstance(image, np.ndarray):
             if len(image.shape) == 3:
-                # Convert BGR/RGB to grayscale
                 return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(np.float32)
             return image.astype(np.float32)
-        else:
-            raise TypeError(f"Unsupported image type: {type(image)}")
-    
+        raise TypeError(f"Unsupported image type: {type(image)}")
+
     def _load_color_image(self, image: Union[str, np.ndarray, Path]) -> np.ndarray:
-        """
-        Helper method to load color image.
-        
-        Args:
-            image: Path to image or numpy array
-            
-        Returns:
-            Color image as numpy array (BGR format)
-        """
+        """Load image as BGR uint8."""
         if isinstance(image, (str, Path)):
             img = cv2.imread(str(image), cv2.IMREAD_COLOR)
             if img is None:
@@ -160,422 +56,208 @@ class BaseFeatureExtractor(ABC):
             return img
         elif isinstance(image, np.ndarray):
             if len(image.shape) == 2:
-                # Convert grayscale to BGR
-                return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+                return cv2.cvtColor(image.astype(np.uint8), cv2.COLOR_GRAY2BGR)
             return image
-        else:
-            raise TypeError(f"Unsupported image type: {type(image)}")
+        raise TypeError(f"Unsupported image type: {type(image)}")
 
 
 class FormExtractor(BaseFeatureExtractor):
-    """
-    Abstract base class for form/shape feature extractors.
-    Provides category-specific helper methods for contour extraction.
-    """
-    
+    """Base class for form-related extractors."""
+
     def get_category(self) -> str:
-        return 'form'
-    
-    def _extract_contour(self, image: Union[str, np.ndarray, Path], 
-                        verbose: int = 0) -> Optional[np.ndarray]:
-        """
-        Extract the largest contour from a binary image.
-        
-        Args:
-            image: Path to image or numpy array
-            verbose: Verbosity level
-            
-        Returns:
-            Contour as numpy array (N, 2) or None if no contour found
-        """
+        return "form"
+
+    def _extract_contour(self, image: Union[str, np.ndarray, Path]) -> Optional[np.ndarray]:
+        """Extract the largest external contour."""
         img = self._load_image(image)
-        
-        # Binarize using Otsu threshold
-        _, binary = cv2.threshold(img.astype(np.uint8), 0, 255, 
-                                 cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        
-        # Find contours
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, 
-                                       cv2.CHAIN_APPROX_NONE)
-        
-        if verbose:
-            print(f"Found {len(contours)} contours")
-        
+        _, binary = cv2.threshold(img.astype(np.uint8), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         if not contours:
             return None
-        
-        # Get largest contour
-        largest = max(contours, key=lambda c: c.shape[0])
-        return largest.squeeze()  # Remove dimensions of size 1
+        largest = max(contours, key=cv2.contourArea)
+        return largest.squeeze(axis=1)
 
 
 class TextureExtractor(BaseFeatureExtractor):
-    """
-    Abstract base class for texture feature extractors.
-    Provides category-specific helper methods for texture preprocessing.
-    """
-    
+    """Base class for texture-related extractors."""
+
     def get_category(self) -> str:
-        return 'texture'
-    
+        return "texture"
+
     def _preprocess_for_texture(self, image: Union[str, np.ndarray, Path]) -> np.ndarray:
-        """
-        Preprocess image for texture analysis (grayscale, float32).
-        
-        Args:
-            image: Path to image or numpy array
-            
-        Returns:
-            Preprocessed grayscale image (float32)
-        """
+        """Load grayscale image for texture analysis."""
         return self._load_image(image)
 
 
 class ColorExtractor(BaseFeatureExtractor):
-    """
-    Abstract base class for color feature extractors.
-    Provides category-specific helper methods for color space conversion.
-    """
-    
-    def get_category(self) -> str:
-        return 'color'
-    
-    def _convert_to_hsv(self, image: Union[str, np.ndarray, Path]) -> np.ndarray:
-        """
-        Convert image to HSV color space.
-        
-        Args:
-            image: Path to image or numpy array
-            
-        Returns:
-            HSV image as numpy array
-        """
-        img = self._load_color_image(image)
-        return cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    """Base class for color-related extractors."""
 
+    def get_category(self) -> str:
+        return "color"
 
 # ============================================================================
 # FORM EXTRACTORS
 # ============================================================================
 
 class FourierDescriptorExtractor(FormExtractor):
-    """
-    Extract Fourier descriptors for shape representation.
-    Translation, scale, and rotation invariant.
-    """
-    
+    """Fourier descriptors for shape."""
+
     def __init__(self, n_coeff: int = 40, name: Optional[str] = None):
-        """
-        Args:
-            n_coeff: Number of Fourier coefficients to extract
-            name: Optional custom name
-        """
         super().__init__(name)
         self.n_coeff = n_coeff
-    
+
     def get_feature_name(self) -> str:
-        return 'fourier'
-    
+        return "fourier"
+
     def get_feature_dim(self) -> int:
         return self.n_coeff
-    
+
     def extract(self, image: Union[str, np.ndarray, Path]) -> Dict[str, Any]:
+        """Extract normalized Fourier descriptors."""
         contour = self._extract_contour(image)
-        
-        if contour is None or len(contour) == 0:
+        if contour is None or len(contour) < 4:
             vector = np.zeros(self.n_coeff, dtype=np.float32)
         else:
-            # Ensure shape (N, 2)
-            contour = np.array(contour)
-            if contour.ndim == 1:
-                # Handle edge case
-                vector = np.zeros(self.n_coeff, dtype=np.float32)
-            else:
-                # Convert to complex representation
-                z = contour[:, 0].astype(np.float64) + 1j * contour[:, 1].astype(np.float64)
-                m = len(z)
-                
-                # Translation invariance
-                z = z - z.mean()
-                
-                # FFT
-                F = np.fft.fft(z)
-                
-                # Scale invariance: divide by magnitude of first non-zero coefficient
-                denom = np.abs(F[1]) if m > 1 and np.abs(F[1]) > 1e-8 else np.linalg.norm(F)
-                if denom == 0:
-                    denom = 1.0
-                
-                # Keep first n_coeff coefficients
-                coeffs = F[:self.n_coeff]
-                desc = np.abs(coeffs) / denom
-                
-                # Pad if necessary
-                if len(desc) < self.n_coeff:
-                    desc = np.pad(desc, (0, self.n_coeff - len(desc)), 'constant')
-                
-                vector = np.abs(desc).astype(np.float32)
-        
-        # L2 normalize within category
+            z = contour[:, 0].astype(np.complex128) + 1j * contour[:, 1]
+            z -= z.mean()
+            F = np.fft.fft(z)
+            denom = np.abs(F[1]) if np.abs(F[1]) > 1e-8 else 1.0
+            desc = np.abs(F[1:self.n_coeff + 1]) / denom
+            vector = np.pad(desc, (0, max(0, self.n_coeff - len(desc))), "constant").astype(np.float32)
+
         norm = np.linalg.norm(vector)
         if norm > 0:
-            vector = vector / norm
-        
-        return {
-            'vector': vector,
-            'metadata': {
-                'n_coeff': self.n_coeff,
-                'normalization': 'L2'
-            },
-            'name': self._name
-        }
+            vector /= norm
+        return {"vector": vector, "metadata": {"n_coeff": self.n_coeff}, "name": self._name}
 
 
 class OrientationHistogramExtractor(FormExtractor):
-    """
-    Extract orientation histogram from contour edge directions.
-    """
-    
+    """Histogram of contour orientations."""
+
     def __init__(self, bins: int = 36, name: Optional[str] = None):
-        """
-        Args:
-            bins: Number of bins for orientation histogram
-            name: Optional custom name
-        """
         super().__init__(name)
         self.bins = bins
-    
+
     def get_feature_name(self) -> str:
-        return 'orientation'
-    
+        return "orientation"
+
     def get_feature_dim(self) -> int:
         return self.bins
-    
+
     def extract(self, image: Union[str, np.ndarray, Path]) -> Dict[str, Any]:
+        """Extract normalized orientation histogram."""
         contour = self._extract_contour(image)
-        
         if contour is None or len(contour) < 2:
             vector = np.zeros(self.bins, dtype=np.float32)
         else:
-            # Ensure shape (N, 2)
-            contour = np.array(contour)
-            if contour.ndim == 1:
-                vector = np.zeros(self.bins, dtype=np.float32)
-            else:
-                # Compute angles between consecutive points
-                diffs = np.diff(contour, axis=0)
-                angles = np.arctan2(diffs[:, 1], diffs[:, 0])  # radians -pi..pi
-                
-                # Convert to degrees 0..360
-                deg = (np.degrees(angles) + 360) % 360
-                
-                # Create histogram
-                hist, _ = np.histogram(deg, bins=self.bins, range=(0, 360), density=True)
-                vector = hist.astype(np.float32)
-        
-        # L2 normalize within category
+            diffs = np.diff(contour, axis=0, append=contour[:1])
+            angles = np.arctan2(diffs[:, 1], diffs[:, 0])
+            deg = (np.degrees(angles) + 360) % 360
+            hist, _ = np.histogram(deg, bins=self.bins, range=(0, 360), density=True)
+            vector = hist.astype(np.float32)
+
         norm = np.linalg.norm(vector)
         if norm > 0:
-            vector = vector / norm
-        
-        return {
-            'vector': vector,
-            'metadata': {
-                'bins': self.bins,
-                'normalization': 'L2'
-            },
-            'name': self._name
-        }
-
+            vector /= norm
+        return {"vector": vector, "metadata": {"bins": self.bins}, "name": self._name}
 
 # ============================================================================
 # TEXTURE EXTRACTORS
 # ============================================================================
 
 class TamuraExtractor(TextureExtractor):
-    """
-    Extract Tamura texture features: Coarseness, Contrast, Directionality, Granularity
-    """
-    
-    def __init__(self, kmax: int = 4, n_bins: int = 16, name: Optional[str] = None):
-        """
-        Args:
-            kmax: Maximum scale for coarseness computation
-            n_bins: Number of bins for directionality histogram
-            name: Optional custom name
-        """
+    """Tamura features: coarseness, contrast, directionality."""
+
+    def __init__(self, kmax: int = 5, n_bins: int = 16, name: Optional[str] = None):
         super().__init__(name)
         self.kmax = kmax
         self.n_bins = n_bins
-    
+
     def get_feature_name(self) -> str:
-        return 'tamura'
-    
+        return "tamura"
+
     def get_feature_dim(self) -> int:
-        return 4  # coarseness, contrast, directionality, granularity
-    
+        return 3
+
     def extract(self, image: Union[str, np.ndarray, Path]) -> Dict[str, Any]:
-        img = self._preprocess_for_texture(image)
-        
+        """Extract and normalize Tamura features."""
+        img = self._preprocess_for_texture(image) / 255.0
         coarseness = self._coarseness(img)
         contrast = self._contrast(img)
         directionality = self._directionality(img)
-        granularity = self._granularity(img)
-        
-        vector = np.array([coarseness, contrast, directionality, granularity], 
-                         dtype=np.float32)
-        
-        # L2 normalize within category
+        vector = np.array([coarseness, contrast, directionality], dtype=np.float32)
         norm = np.linalg.norm(vector)
         if norm > 0:
-            vector = vector / norm
-        
-        return {
-            'vector': vector,
-            'metadata': {
-                'kmax': self.kmax,
-                'n_bins': self.n_bins,
-                'normalization': 'L2'
-            },
-            'name': self._name
-        }
-    
+            vector /= norm
+        return {"vector": vector, "metadata": {"kmax": self.kmax, "n_bins": self.n_bins}, "name": self._name}
+
     def _coarseness(self, img: np.ndarray) -> float:
-        """Compute Tamura coarseness."""
         h, w = img.shape
-        img_norm = img / 255.0
-        
-        averages = []
-        for k in range(self.kmax):
-            size = max(1, 2 ** k)
-            avg = cv2.blur(img_norm, (size, size))
-            averages.append(avg)
-        
-        best_scale = np.zeros_like(img_norm, dtype=np.float32)
-        scale_map = np.full_like(img_norm, 1.0, dtype=np.float32)
-        
+        S = np.zeros((self.kmax, h, w))
         for k in range(self.kmax):
             size = 2 ** k
-            avg = averages[k]
-            
-            diff_h = np.zeros_like(avg)
-            diff_v = np.zeros_like(avg)
-            
+            kernel = np.ones((size, size)) / (size * size)
+            S[k] = cv2.filter2D(img, -1, kernel)
+        E = np.zeros((self.kmax * 2, h, w))
+        for k in range(self.kmax):
+            size = 2 ** k
             if size < w:
-                diff_h[:, :-size] = np.abs(avg[:, size:] - avg[:, :-size])
+                E[k] = np.abs(S[k] - np.roll(S[k], size, axis=1))
             if size < h:
-                diff_v[:-size, :] = np.abs(avg[size:, :] - avg[:-size, :])
-            
-            diff = np.maximum(diff_h, diff_v)
-            mask = diff > best_scale
-            best_scale[mask] = diff[mask]
-            scale_map[mask] = 2 ** k
-        
-        return float(np.mean(scale_map))
-    
+                E[k + self.kmax] = np.abs(S[k] - np.roll(S[k], size, axis=0))
+        best_k = np.argmax(E.reshape(self.kmax * 2, -1), axis=0) % self.kmax
+        return np.mean(2 ** best_k.reshape(h, w))
+
     def _contrast(self, img: np.ndarray) -> float:
-        """Compute Tamura contrast."""
-        img_norm = img / 255.0
-        mu = np.mean(img_norm)
-        diff = img_norm - mu
-        sigma = np.sqrt(np.mean(diff ** 2)) + 1e-8
-        m4 = np.mean(diff ** 4) + 1e-8
-        alpha4 = m4 / (sigma ** 4)
-        return float(sigma / (alpha4 ** 0.25 + 1e-8))
-    
+        mu4 = np.mean((img - img.mean()) ** 4)
+        sigma2 = np.var(img)
+        alpha4 = mu4 / (sigma2 ** 2 + 1e-8)
+        return sigma2 ** 0.5 / (alpha4 ** 0.25 + 1e-8)
+
     def _directionality(self, img: np.ndarray) -> float:
-        """Compute Tamura directionality."""
-        img_norm = img / 255.0
-        
-        gx = cv2.Sobel(img_norm, cv2.CV_32F, 1, 0, ksize=3)
-        gy = cv2.Sobel(img_norm, cv2.CV_32F, 0, 1, ksize=3)
-        
-        mag = np.sqrt(gx ** 2 + gy ** 2)
-        theta = np.arctan2(gy, gx)
-        theta = (theta + np.pi) % np.pi
-        
-        thresh = 0.1 * np.max(mag)
-        mask = mag > thresh
-        
-        if np.count_nonzero(mask) == 0:
-            return 0.0
-        
-        angles = theta[mask]
-        hist, _ = np.histogram(angles, bins=self.n_bins, range=(0, np.pi))
-        hist = hist.astype(np.float32)
-        if hist.sum() != 0:
-            hist /= hist.sum()
-        
-        uniform = 1.0 / self.n_bins
-        return float(np.sum((hist - uniform) ** 2))
-    
-    def _granularity(self, img: np.ndarray) -> float:
-        """Compute Tamura granularity."""
-        img_norm = img / 255.0
-        lap = cv2.Laplacian(img_norm, cv2.CV_32F, ksize=3)
-        return float(np.mean(np.abs(lap)))
+        gx = cv2.Sobel(img, cv2.CV_32F, 1, 0)
+        gy = cv2.Sobel(img, cv2.CV_32F, 0, 1)
+        mag = np.sqrt(gx**2 + gy**2)
+        theta = np.arctan2(np.abs(gy), np.abs(gx)) % np.pi
+        thresh = mag.mean()
+        hist, _ = np.histogram(theta[mag > thresh], bins=self.n_bins, range=(0, np.pi))
+        hist = hist / (hist.sum() + 1e-8)
+        return np.sum((hist - hist.mean()) ** 2)
 
 
 class GaborExtractor(TextureExtractor):
-    """
-    Extract Gabor filter bank features for texture analysis.
-    """
-    
-    def __init__(self, n_scales: int = 3, n_orientations: int = 4, 
-                 name: Optional[str] = None):
-        """
-        Args:
-            n_scales: Number of scales (wavelengths)
-            n_orientations: Number of orientations
-            name: Optional custom name
-        """
+    """Gabor filter bank features (mean + std per filter)."""
+
+    def __init__(self, n_scales: int = 4, n_orientations: int = 6, name: Optional[str] = None):
         super().__init__(name)
         self.n_scales = n_scales
         self.n_orientations = n_orientations
-        self.lambdas = [4, 8, 16][:n_scales]
-        self.thetas = [k * np.pi / n_orientations for k in range(n_orientations)]
-    
+
     def get_feature_name(self) -> str:
-        return 'gabor'
-    
+        return "gabor"
+
     def get_feature_dim(self) -> int:
-        return self.n_scales * self.n_orientations
-    
+        return self.n_scales * self.n_orientations * 2
+
     def extract(self, image: Union[str, np.ndarray, Path]) -> Dict[str, Any]:
-        img = self._preprocess_for_texture(image)
-        
+        """Extract normalized Gabor responses."""
+        img = self._preprocess_for_texture(image) / 255.0
         features = []
-        for lam in self.lambdas:
-            sigma = 0.56 * lam
-            gamma = 0.5
-            psi = 0
-            ksize = int(4 * lam + 1)
-            if ksize % 2 == 0:
-                ksize += 1
-            
-            for theta in self.thetas:
-                kernel = cv2.getGaborKernel(
-                    (ksize, ksize), sigma, theta, lam, gamma, psi, ktype=cv2.CV_32F
-                )
-                response = cv2.filter2D(img, cv2.CV_32F, kernel)
-                energy = np.mean(response ** 2) # type: ignore
-                features.append(energy)
-        
+        for s in range(self.n_scales):
+            lambda_ = 4 * (2 ** s)
+            for o in range(self.n_orientations):
+                theta = o * np.pi / self.n_orientations
+                kernel = cv2.getGaborKernel((21, 21), 5, theta, lambda_, 0.5, 0, ktype=cv2.CV_32F)
+                resp = cv2.filter2D(img, cv2.CV_32F, kernel)
+                features.extend([resp.mean(), resp.std()])
         vector = np.array(features, dtype=np.float32)
-        
-        # L2 normalize within category
         norm = np.linalg.norm(vector)
         if norm > 0:
-            vector = vector / norm
-        
+            vector /= norm
         return {
-            'vector': vector,
-            'metadata': {
-                'n_scales': self.n_scales,
-                'n_orientations': self.n_orientations,
-                'normalization': 'L2'
-            },
-            'name': self._name
+            "vector": vector,
+            "metadata": {"n_scales": self.n_scales, "n_orientations": self.n_orientations},
+            "name": self._name,
         }
 
 
@@ -584,473 +266,201 @@ class GaborExtractor(TextureExtractor):
 # ============================================================================
 
 class HSVHistogramExtractor(ColorExtractor):
-    """
-    Extract HSV color histogram features.
-    """
-    
-    def __init__(self, bins: int = 32, normalize: bool = True, 
-                 name: Optional[str] = None):
-        """
-        Args:
-            bins: Number of bins per channel (H, S, V)
-            normalize: Whether to normalize histogram
-            name: Optional custom name
-        """
+    """3D HSV histogram."""
+
+    def __init__(self, h_bins: int = 4, sv_bins: int = 4, name: Optional[str] = None):
         super().__init__(name)
-        self.bins = bins
-        self.normalize = normalize
-    
+        self.h_bins = h_bins
+        self.sv_bins = sv_bins
+
     def get_feature_name(self) -> str:
-        return 'hsv_histogram'
-    
+        return "hsv_histogram"
+
     def get_feature_dim(self) -> int:
-        return 3 * self.bins  # H, S, V channels
-    
+        return self.h_bins * self.sv_bins * self.sv_bins
+
     def extract(self, image: Union[str, np.ndarray, Path]) -> Dict[str, Any]:
+        """Extract normalized HSV histogram."""
         img = self._load_color_image(image)
-        
-        # Convert BGR to HSV
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        
-        # Compute histograms for each channel
-        hist_h = cv2.calcHist([hsv], [0], None, [self.bins], [0, 32])
-        hist_s = cv2.calcHist([hsv], [1], None, [self.bins], [0, 32])
-        hist_v = cv2.calcHist([hsv], [2], None, [self.bins], [0, 32])
-        
-        # Normalize if requested
-        if self.normalize:
-            hist_h = hist_h / (hist_h.sum() + 1e-8)
-            hist_s = hist_s / (hist_s.sum() + 1e-8)
-            hist_v = hist_v / (hist_v.sum() + 1e-8)
-        
-        # Concatenate into single vector
-        vector = np.concatenate([hist_h.flatten(), hist_s.flatten(), 
-                                hist_v.flatten()]).astype(np.float32)
-        
-        # L2 normalize within category ||v||
-        norm = np.linalg.norm(vector) 
+        hist = cv2.calcHist(
+            [hsv], [0, 1, 2], None, [self.h_bins, self.sv_bins, self.sv_bins], [0, 180, 0, 256, 0, 256]
+        )
+        hist = cv2.normalize(hist, hist).flatten()
+        vector = hist.astype(np.float32)
+        norm = np.linalg.norm(vector)
         if norm > 0:
-            vector = vector / norm
-        #  [50] [150] = [200]
-        
-        return {
-            'vector': vector,
-            'metadata': {
-                'bins': self.bins,
-                'normalize': self.normalize,
-                'normalization': 'L2'
-            },
-            'name': self._name
-        }
+            vector /= norm
+        return {"vector": vector, "metadata": {"h_bins": self.h_bins, "sv_bins": self.sv_bins}, "name": self._name}
 
 
 class DominantColorsExtractor(ColorExtractor):
-    """
-    Extract dominant colors using K-means clustering.
-    """
-    
-    def __init__(self, n_colors: int = 3, name: Optional[str] = None):
-        """
-        Args:
-            n_colors: Number of dominant colors to extract
-            name: Optional custom name
-        """
+    """Dominant colors via k-means."""
+
+    def __init__(self, n_colors: int = 5, name: Optional[str] = None):
         super().__init__(name)
         self.n_colors = n_colors
-    
+
     def get_feature_name(self) -> str:
-        return 'dominant_colors'
-    
+        return "dominant_colors"
+
     def get_feature_dim(self) -> int:
-        return self.n_colors * 3  # RGB values for each color
-    
+        return self.n_colors * 3
+
     def extract(self, image: Union[str, np.ndarray, Path]) -> Dict[str, Any]:
+        """Extract normalized dominant colors (sorted by prevalence)."""
         img = self._load_color_image(image)
-        
-        # Reshape image to be a list of pixels
         pixels = img.reshape(-1, 3).astype(np.float32)
-        
-        # Apply K-means
-        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 20, 1.0)
-        labels = np.zeros((pixels.shape[0], 1), dtype=np.int32)
-        _, labels, centers = cv2.kmeans(
-            pixels, self.n_colors, labels, criteria, 10, cv2.KMEANS_RANDOM_CENTERS
-        )
-        
-        # Sort by frequency (most common first)
-        unique, counts = np.unique(labels, return_counts=True)
-        sorted_indices = np.argsort(counts)[::-1]
-        dominant_colors = centers[sorted_indices].flatten()
-        
-        vector = dominant_colors.astype(np.float32)
-        
-        # Normalize to [0, 1]
-        vector = vector / 255.0
-        
-        # L2 normalize within category
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.1)
+        _, labels, centers = cv2.kmeans(pixels, self.n_colors, None, criteria, 10, cv2.KMEANS_PP_CENTERS) # type: ignore
+        counts = np.bincount(labels.flatten(), minlength=self.n_colors)
+        order = np.argsort(-counts)
+        centers = centers[order] / 255.0
+        vector = centers.flatten().astype(np.float32)
         norm = np.linalg.norm(vector)
         if norm > 0:
-            vector = vector / norm
-        
-        return {
-            'vector': vector,
-            'metadata': {
-                'n_colors': self.n_colors,
-                'normalization': 'L2'
-            },
-            'name': self._name
-        }
-
+            vector /= norm
+        return {"vector": vector, "metadata": {"n_colors": self.n_colors}, "name": self._name}
 
 # ============================================================================
-# FEATURE EXTRACTION SERVICE
+# SERVICES
 # ============================================================================
 
 class FeatureExtractionService:
-    """
-    Manages multiple feature extractors and combines their outputs by category.
-    """
-    
+    """Service to extract and combine features from multiple extractors."""
+
     DEFAULT_WEIGHTS = {
-        'form': {
-            'fourier': 0.6,
-            'orientation': 0.4
-        },
-        'texture': {
-            'tamura': 0.5,
-            'gabor': 0.5
-        },
-        'color': {
-            'hsv_histogram': 0.5,
-            'dominant_colors': 0.5
-        },
+        "form": {"fourier": 0.6, "orientation": 0.4},
+        "texture": {"tamura": 0.5, "gabor": 0.5},
+        "color": {"hsv_histogram": 0.2, "dominant_colors": 0.8},
     }
 
-    def __init__(self,
-                extractors: List[BaseFeatureExtractor],
-                weights: Optional[Dict[str, Dict[str, float]]] = None
-                ):
-        """
-        Initialize with a list of feature extractors.
-        
-        Args:
-            extractors: List of BaseFeatureExtractor instances
-            
-        Raises:
-            ValueError: If duplicate extractor names found
-        """
+    def __init__(
+        self, extractors: List[BaseFeatureExtractor], weights: Optional[Dict[str, Dict[str, float]]] = None
+    ):
         self.extractors = extractors
         self.weights = weights or self.DEFAULT_WEIGHTS
-        self._validate_extractors()
         self._group_by_category()
-    
-    def _validate_extractors(self):
-        """Validate that all extractors have unique names."""
-        names = [ext.get_feature_name() for ext in self.extractors]
-        if len(names) != len(set(names)):
-            raise ValueError("Duplicate feature extractor names found!")
-    
-    def _group_by_category(self):
-        """Group extractors by category."""
-        self._extractors_by_category = {
-            'form': [],
-            'texture': [],
-            'color': []
-        }
-        
-        for ext in self.extractors:
-            category = ext.get_category()
-            if category not in self._extractors_by_category:
-                raise ValueError(f"Unknown category: {category}")
-            self._extractors_by_category[category].append(ext)
-    
-    def extract(self, image: Union[str, np.ndarray, Path], 
-                categories: Optional[List[str]] = None) -> Dict[str, Any]:
-        """
-        Extract features using selected categories.
-        
-        Args:
-            image: Path to image or numpy array
-            categories: List of categories to extract. If None, extracts all categories.
-                       Valid values: 'form', 'texture', 'color'
-        
-        Returns:
-            Dictionary with structure:
-            {
-                'form': {
-                    'fourier': {'vector': ..., 'metadata': ..., 'name': ...},
-                    'orientation': {...},
-                    'combined': np.array([...])  # concatenated and normalized
-                },
-                'texture': {...},
-                'color': {...}
-            }
-        """
-        if categories is None:
-            categories = ['form', 'texture', 'color']
-        
-        # Validate categories
-        valid_categories = {'form', 'texture', 'color'}
-        invalid = set(categories) - valid_categories
-        if invalid:
-            raise ValueError(f"Invalid categories: {invalid}")
-        
-        result = {}
-        
-        for category in categories:
-            extractors = self._extractors_by_category[category]
-            
-            if not extractors:
-                # No extractors for this category, skip
-                continue
-            
-            category_features = {}
-            vectors = []
-            extractor_names = []
-            
-            for extractor in extractors:
-                feature_result = extractor.extract(image)
-                name = feature_result['name']
-                category_features[name] = feature_result
-                vectors.append(feature_result['vector'])
-                extractor_names.append(name)
-            
-            if vectors:
-                combined = []
-                
-                if category in self.weights:
-                    cat_weights = self.weights[category]
-                else:
-                    # Equal weights if not specified
-                    cat_weights = {name: 1.0 / len(vectors) for name in extractor_names}
-                
-                for vec, name in zip(vectors, extractor_names):
-                    weight = cat_weights.get(name, 1.0 / len(vectors))
-                    combined.append(np.float32(weight*vec))
-                combined = np.concatenate(combined)
 
-                # Normalize combined vector within category
+    def _group_by_category(self):
+        self.by_cat = {"form": [], "texture": [], "color": []}
+        for e in self.extractors:
+            self.by_cat[e.get_category()].append(e)
+
+    def extract(self, image: Union[str, np.ndarray, Path], categories: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Extract features per category and combine weighted vectors."""
+        if categories is None:
+            categories = ["form", "texture", "color"]
+        result = {}
+        for cat in categories:
+            feats = {}
+            weighted_vectors = []
+            for ext in self.by_cat.get(cat, []):
+                feat = ext.extract(image)
+                name = ext.get_feature_name()
+                feats[name] = feat
+                weight = self.weights.get(cat, {}).get(name, 1.0 / len(self.by_cat.get(cat, [])))
+                weighted_vectors.append(feat["vector"] * weight)
+            if feats and weighted_vectors:
+                combined = np.concatenate(weighted_vectors)
                 norm = np.linalg.norm(combined)
                 if norm > 0:
-                    combined = combined / norm
-                category_features['combined'] = combined
-            
-            else:
-                raise ValueError(f"Error : variable vectors returned as {type(vectors)} instead of List")
-            
-            result[category] = category_features
-        
+                    combined /= norm
+                feats["combined"] = combined
+                result[cat] = feats
         return result
-    
-    def get_extractors_by_category(self, category: str) -> List[BaseFeatureExtractor]:
-        """Get all extractors for a specific category."""
-        return self._extractors_by_category.get(category, [])
-    
-    def get_extractor(self, name: str) -> Optional[BaseFeatureExtractor]:
-        """Get extractor by name."""
-        for ext in self.extractors:
-            if ext.get_feature_name() == name:
-                return ext
-        return None
 
-
-# ============================================================================
-# SIMILARITY COMPUTER
-# ============================================================================
 
 class SimilarityComputer:
-    """
-    Computes weighted similarity between feature sets using two-level weighting:
-    - Level 1: Extractor weights within each category
-    - Level 2: Category weights across categories
-    """
-    
-    # Default weights: extractor weights within category sum to 1.0
-    # Category weights sum to 1.0
-    DEFAULT_WEIGHTS = {
-        'form': {
-            'fourier': 0.6,
-            'orientation': 0.4
-        },
-        'texture': {
-            'tamura': 0.5,
-            'gabor': 0.5
-        },
-        'color': {
-            'hsv_histogram': 0.5,
-            'dominant_colors': 0.5
-        },
-        'category_weights': {
-            'form': 0.6,
-            'texture': 0.3,
-            'color': 0.1
-        }
-    }
-    
-    def __init__(self, weights: Optional[Dict[str, Any]] = None):
-        """
-        Initialize similarity computer with weights.
-        
-        Args:
-            weights: Weight configuration. If None, uses DEFAULT_WEIGHTS.
-                    Structure:
-                    {
-                        'form': {'fourier': 0.6, 'orientation': 0.4},
-                        'texture': {'tamura': 0.5, 'gabor': 0.5},
-                        'color': {'hsv_histogram': 0.5, 'dominant_colors': 0.5},
-                        'category_weights': {'form': 0.33, 'texture': 0.34, 'color': 0.33}
-                    }
-        """
-        self.weights = weights or self.DEFAULT_WEIGHTS.copy()
-        self._validate_weights()
-    
-    def _validate_weights(self):
-        """Validate that weights sum to 1.0 within categories and for category weights."""
-        # Validate extractor weights within each category
-        for category in ['form', 'texture', 'color']:
-            if category in self.weights:
-                cat_weights = self.weights[category]
-                total = sum(cat_weights.values())
-                if abs(total - 1.0) > 1e-6:
-                    raise ValueError(f"Extractor weights in '{category}' must sum to 1.0, got {total}")
-        
-        # Validate category weights
-        if 'category_weights' in self.weights:
-            cat_total = sum(self.weights['category_weights'].values())
-            if abs(cat_total - 1.0) > 1e-6:
-                raise ValueError(f"Category weights must sum to 1.0, got {cat_total}")
-    
-    def _cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
-        """
-        Compute cosine similarity between two vectors.
-        
-        Args:
-            vec1: First feature vector
-            vec2: Second feature vector
-            
-        Returns:
-            Cosine similarity in [0, 1] (assuming normalized vectors)
-        """
-        dot_product = np.dot(vec1, vec2)
-        # For normalized vectors, cosine similarity = dot product
-        # Clamp to [0, 1] for safety
-        return max(0.0, min(1.0, dot_product))
-    
-    def compute(self, features1: Dict[str, Any], features2: Dict[str, Any],
-                selected_categories: Optional[List[str]] = None) -> float:
-        """
-        Compute weighted similarity between two feature sets.
-        
-        Args:
-            features1: First feature set (from FeatureExtractionService.extract())
-            features2: Second feature set (from FeatureExtractionService.extract())
-            selected_categories: List of categories to use. If None, uses all available.
-        
-        Returns:
-            Weighted similarity score in [0, 1]
-        """
-        if selected_categories is None:
-            # Use all categories present in both feature sets
-            selected_categories = list(set(features1.keys()) & set(features2.keys()))
-        
-        if not selected_categories:
-            raise ValueError("No common categories found between feature sets")
-        
-        category_similarities = {}
-        
-        # Level 1: Compute similarity within each category
-        for category in selected_categories:
-            if category not in features1 or category not in features2:
-                # Skip if category not present in both
-                continue
-            
-            if category not in self.weights:
-                # No weights defined for this category, skip
-                continue
-            
-            cat_features1 = features1[category]
-            cat_features2 = features2[category]
-            extractor_weights = self.weights[category]
-            
-            # Compute weighted similarity within category
-            category_sim = 0.0
-            total_weight = 0.0
-            
-            for extractor_name, weight in extractor_weights.items():
-                if extractor_name in cat_features1 and extractor_name in cat_features2:
-                    vec1 = cat_features1[extractor_name]['vector']
-                    vec2 = cat_features2[extractor_name]['vector']
-                    
-                    sim = self._cosine_similarity(vec1, vec2)
-                    category_sim += weight * sim
-                    total_weight += weight
-            
-            # Renormalize if some extractors were missing
-            if total_weight > 0:
-                category_sim = category_sim / total_weight
-            
-            category_similarities[category] = category_sim
-        
-        # Level 2: Combine category similarities with category weights
-        if 'category_weights' not in self.weights:
-            # No category weights, use equal weights
-            return float(np.mean(list(category_similarities.values())))
-        
-        final_similarity = 0.0
-        total_cat_weight = 0.0
-        
-        for category, sim in category_similarities.items():
-            if category in self.weights['category_weights']:
-                weight = self.weights['category_weights'][category]
-                final_similarity += weight * sim
-                total_cat_weight += weight
-        
-        # Renormalize if some categories were missing
-        if total_cat_weight > 0:
-            final_similarity = final_similarity / total_cat_weight
-        else:
-            # Fallback to mean if no weights available
-            final_similarity = np.mean(list(category_similarities.values()))
-        
-        return float(final_similarity)
-    
-    def compute_category_similarity(self, features1: Dict[str, Any], 
-                                   features2: Dict[str, Any],
-                                   category: str) -> float:
-        """
-        Compute similarity for a specific category only.
-        
-        Args:
-            features1: First feature set
-            features2: Second feature set
-            category: Category to compute similarity for
-        
-        Returns:
-            Category-specific similarity score
-        """
-        if category not in features1 or category not in features2:
-            return 0.0
-        
-        if category not in self.weights:
-            return 0.0
-        
-        cat_features1 = features1[category]
-        cat_features2 = features2[category]
-        extractor_weights = self.weights[category]
-        
-        category_sim = 0.0
-        total_weight = 0.0
-        
-        for extractor_name, weight in extractor_weights.items():
-            if extractor_name in cat_features1 and extractor_name in cat_features2:
-                vec1 = cat_features1[extractor_name]['vector']
-                vec2 = cat_features2[extractor_name]['vector']
-                
-                sim = self._cosine_similarity(vec1, vec2)
-                category_sim += weight * sim
-                total_weight += weight
-        
-        if total_weight > 0:
-            return float(category_sim / total_weight)
-        return 0.0
+    """Compute similarity between feature sets."""
 
+    DEFAULT_WEIGHTS = {"form": 0.5, "texture": 0.3, "color": 0.2}
+
+    def __init__(self, weights: Optional[Dict] = None):
+        self.weights = weights or self.DEFAULT_WEIGHTS
+
+    def compute(self, f1: Dict, f2: Dict, categories: Optional[List[str]] = None, metric: str = "euclidean") -> float:
+        """
+        Compute similarity between two feature sets.
+
+        Parameters
+        ----------
+        f1 : dict
+            Feature set 1.
+        f2 : dict
+            Feature set 2.
+        categories : list, optional
+            Categories to consider for similarity computation.
+        metric : str, optional
+            Metric to use for similarity computation. Must be 'cosine' or 'euclidean'.
+
+        Returns
+        -------
+        float
+            Similarity score between 0 and 1.
+        """
+
+        if categories is None:
+            categories = list(set(f1.keys()) & set(f2.keys()))
+        if not categories:
+            return 0.0
+        if metric not in ["cosine", "euclidean"]:
+            raise ValueError("Metric must be 'cosine' or 'euclidean'.")
+
+        sims = []
+        for cat in categories:
+            cat1, cat2 = f1.get(cat, {}), f2.get(cat, {})
+            if "combined" not in cat1 or "combined" not in cat2:
+                continue
+            v1, v2 = cat1["combined"], cat2["combined"]
+            if metric == "cosine":
+                sim = np.dot(v1, v2)
+            else:  # euclidean
+                dist = np.linalg.norm(v1 - v2)
+                sim = 1.0 / (1.0 + dist)
+            sims.append(sim)
+
+        if not sims:
+            return 0.0
+
+        total, total_w = 0.0, 0.0
+        for cat, sim in zip(categories, sims):
+            w = self.weights.get(cat, 1.0 / len(sims))
+            total += w * sim
+            total_w += w
+        return total / total_w
+
+    def compute_with_class_filter(self,
+        query_features: Dict,query_class: str,
+        base_features: Dict[str, Dict],
+        categories: Optional[List[str]] = None, 
+        metric: str = "euclidean",
+        same_class_only: bool = False,
+    ) -> List[Tuple[str, float]]:
+
+        if categories is None:
+            categories = ["form", "texture", "color"]
+        
+        similarities = []
+        for path, data in base_features.items():
+            if data.get("num_objects", 0) == 0:
+                continue
+            objects = data.get("objects", [])
+            if isinstance(objects, np.ndarray):
+                objects = objects.tolist()
+
+            max_sim = 0.0
+            for obj in objects:
+                obj_class = obj.get("class_name", "unknown")
+                if same_class_only and obj_class != query_class:
+                    continue
+                try:
+                    sim = self.compute(query_features, obj["features"], metric=metric)
+                    # use the object with highest similarity score
+                    if sim > max_sim:
+                        max_sim = sim
+                except Exception:
+                    continue
+            if max_sim > 0:
+                similarities.append((path, max_sim))
+        return sorted(similarities, key=lambda x: x[1], reverse=True)
