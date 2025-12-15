@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from app.core.config import settings
 from app.routers.detect import router as detect_router
@@ -17,13 +18,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ THIS is where your indexed dataset images really are:
-# /data/imagenet_yolo15/images/val/...
-app.mount("/dataset", StaticFiles(directory=settings.DATASET_ROOT), name="dataset")
+# Serve dataset images directly (Option A)
+# Example URL: /dataset/images/val/xxx.jpg
+app.mount(
+    "/dataset",
+    StaticFiles(directory=settings.DATASET_ROOT, check_dir=False),
+    name="dataset",
+)
 
 app.include_router(detect_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
 
+
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+@app.get("/health/dataset")
+def health_dataset():
+    root = Path(settings.DATASET_ROOT)
+    return {"dataset_root": str(root), "exists": root.exists()}

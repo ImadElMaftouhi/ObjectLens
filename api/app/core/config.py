@@ -32,11 +32,6 @@ class Settings(BaseSettings):
     YOLO_IMGSZ: int = 640
 
     # =====================
-    # Thumbnails
-    # =====================
-    THUMB_SIZE: int = 256
-
-    # =====================
     # Search
     # =====================
     TOPK_DEFAULT: int = 20

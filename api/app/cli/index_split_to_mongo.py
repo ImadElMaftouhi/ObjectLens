@@ -10,8 +10,10 @@ from tqdm import tqdm
 
 from app.core.config import settings
 from app.db.mongo import get_collection
-from app.services.features import build_feature_service, extract_object_features
 from app.services.yolo_service import YoloService
+
+# ✅ use the new extractor service (same config as API)
+from app.services.compute_similarity import FEATURE_SERVICE
 
 
 SUPPORTED_EXTS = {
@@ -36,8 +38,7 @@ def label_path_for_image(dataset_root: Path, split: str, img_path: Path) -> Path
 
 def yolo_line_to_bbox(line: str, w: int, h: int) -> Optional[Tuple[int, int, int, int, int]]:
     """
-    YOLO label: class_id x_center y_center width height
-    (usually normalized 0..1)
+    YOLO label: class_id x_center y_center width height (often normalized 0..1)
     Returns: (class_id, x1, y1, x2, y2)
     """
     parts = line.strip().split()
@@ -78,11 +79,9 @@ def crop(img_bgr: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
 
 
 def to_jsonable(x: Any) -> Any:
-    """
-    Recursively convert numpy types to plain Python types for MongoDB.
-    """
+    """Recursively convert numpy types to plain Python types for MongoDB."""
     if isinstance(x, np.ndarray):
-        return x.astype(float).tolist()  # ensure JSON-friendly
+        return x.astype(float).tolist()
     if isinstance(x, (np.float32, np.float64)):
         return float(x)
     if isinstance(x, (np.int32, np.int64)):
@@ -104,9 +103,8 @@ def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], dr
         iou=settings.YOLO_IOU,
         imgsz=settings.YOLO_IMGSZ,
     )
-    class_names: Dict[int, str] = yolo.class_names  # {id: name}
+    class_names: Dict[int, str] = yolo.class_names
 
-    service = build_feature_service()
     col = get_collection("images")
 
     if drop:
@@ -132,6 +130,7 @@ def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], dr
         objects: List[Dict[str, Any]] = []
         lines = lbl_path.read_text(encoding="utf-8").splitlines() if lbl_path.exists() else []
 
+        obj_idx = 0
         for line in lines:
             if not line.strip():
                 continue
@@ -143,18 +142,25 @@ def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], dr
             class_id, x1, y1, x2, y2 = parsed
             obj_crop = crop(img, x1, y1, x2, y2)
 
-            feats, final_vec = extract_object_features(service, obj_crop)
+            feats = FEATURE_SERVICE.extract(obj_crop, categories=["form", "texture", "color"])
+
+            ok_combined = (
+                "form" in feats and "combined" in feats["form"] and
+                "texture" in feats and "combined" in feats["texture"] and
+                "color" in feats and "combined" in feats["color"]
+            )
+            if not ok_combined:
+                continue
 
             objects.append({
+                "object_id": int(obj_idx),  # ✅ IMPORTANT
                 "bbox": [int(x1), int(y1), int(x2), int(y2)],
                 "class_id": int(class_id),
                 "class_name": class_names.get(int(class_id), str(class_id)),
                 "confidence": 1.0,
-                # ✅ FIX: make features JSON/Mongo friendly
                 "features": to_jsonable(feats),
-                "final_vector": to_jsonable(final_vec),  # list[float]
-                "vector_dim": int(len(final_vec)),
             })
+            obj_idx += 1
 
         doc = {
             "_id": rel_image_path,

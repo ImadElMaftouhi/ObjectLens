@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 
 
 class BBoxXYWH(BaseModel):
@@ -12,16 +12,28 @@ class BBoxXYWH(BaseModel):
 class DetectionOut(BaseModel):
     id: int
     bbox_xyxy: List[int]          # [x1, y1, x2, y2]
-    bbox: BBoxXYWH                # ✅ added (what the UI uses)
+    bbox: BBoxXYWH                # UI-friendly format
     class_id: int
     class_name: str
     confidence: float
-    thumbnail: Optional[str] = None  # data URL
+    # ❌ thumbnail removed
 
 
 class DetectResponse(BaseModel):
     detections: List[DetectionOut]
 
 
-class SearchRequest(BaseModel):
-    thumbnail: str  # data:image/jpeg;base64,...
+# ✅ Search now happens via multipart/form-data (file upload),
+# not JSON with base64 thumbnail
+class SearchResponseImage(BaseModel):
+    image_path: str
+    image_url: str
+    score: float
+    best_bbox: List[int]
+    best_class_id: int
+    best_class_name: str
+
+
+class SearchResponse(BaseModel):
+    top_k: int
+    best_images: List[SearchResponseImage]

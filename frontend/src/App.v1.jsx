@@ -23,15 +23,9 @@ export default function App() {
     return crops[selectedIndex] || null
   }, [crops, selectedIndex])
 
-  function revokeCropUrls(list) {
-    ;(list || []).forEach((c) => {
-      if (c?.previewUrl) URL.revokeObjectURL(c.previewUrl)
-    })
-  }
-
   function resetAll() {
     if (imageUrl) URL.revokeObjectURL(imageUrl)
-    revokeCropUrls(crops)
+    crops.forEach((c) => c.previewUrl && URL.revokeObjectURL(c.previewUrl))
 
     setFile(null)
     setImageUrl(null)
@@ -45,18 +39,9 @@ export default function App() {
   async function onPickFile(e) {
     const f = e.target.files?.[0]
     if (!f) return
-
-    // cleanup current resources before replacing
-    if (imageUrl) URL.revokeObjectURL(imageUrl)
-    revokeCropUrls(crops)
-
+    resetAll()
     setFile(f)
     setImageUrl(URL.createObjectURL(f))
-
-    setDetectResult(null)
-    setCrops([])
-    setSelectedIndex(null)
-    setTopkResult(null)
     setStatus("Image loaded. Click Detect.")
   }
 
@@ -70,7 +55,6 @@ export default function App() {
       setDetectResult(res)
 
       if (!res?.detections?.length) {
-        revokeCropUrls(crops)
         setCrops([])
         setSelectedIndex(null)
         setTopkResult(null)
@@ -79,9 +63,6 @@ export default function App() {
       }
 
       setStatus(`Detected ${res.detections.length} object(s). Cropping...`)
-
-      // cleanup old crops before generating new ones
-      revokeCropUrls(crops)
 
       const cropItems = []
       for (const det of res.detections) {
@@ -104,7 +85,7 @@ export default function App() {
   async function runTopK() {
     if (!selected || !detectResult) return
     setLoading(true)
-    setStatus("Searching Top-K (class-filtered)...")
+    setStatus("Searching Top-K...")
 
     try {
       const det = selected.det
@@ -113,14 +94,7 @@ export default function App() {
       const topk = await searchTopK({
         blob: selected.blob,
         filename: `query_${detectResult.image_id || "img"}_${det.id}.png`,
-        topK: k,
-
-        // ✅ IMPORTANT: enable class filtering
-        queryClass: det.class_name,
-        sameClassOnly: true,
-
-        // optional but consistent with backend
-        metric: "cosine"
+        topK: k
       })
 
       setTopkResult(topk)
