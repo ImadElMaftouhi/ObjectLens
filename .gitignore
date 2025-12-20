@@ -56,7 +56,8 @@ imagenet_yolo15/
 yolov8n_imagenet152.zip
 raw_data/
 features/
-
+scripts/test/
+archive/
 
 # Python
 *.egg-info/

@@ -19,14 +19,6 @@ tqdm
 # CORS Support
 fastapi-cors
 
-# Optional: For async database operations (if needed in future)
-sqlalchemy
-aiosqlite
-
-# Optional: For API documentation enhancement
-python-jose
-passlib
-
 # Jupyter Notebook
 jupyter
 jupyterlab
