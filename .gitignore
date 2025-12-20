@@ -50,12 +50,13 @@ thumbnails/
 *.h5
 
 # Dataset (keep structure, ignore large files if needed)
-# Uncomment if you want to ignore dataset files
 playground/
 imagenet_yolo15/
 yolov8n_imagenet152.zip
 raw_data/
 features/
+scripts/test/**
+archive/**
 
 
 # Python
