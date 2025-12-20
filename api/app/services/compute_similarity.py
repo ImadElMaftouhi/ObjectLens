@@ -9,7 +9,6 @@ from app.services.feature_extraction import (
     TamuraExtractor,
     GaborExtractor,
     HSVHistogramExtractor,
-    DominantColorsExtractor,
     FeatureExtractionService,
     SimilarityComputer,
 )
@@ -17,18 +16,20 @@ from app.services.feature_extraction import (
 # -----------------------------------------------------------------------------
 # Feature + similarity services (MUST match indexing config)
 # -----------------------------------------------------------------------------
+# ✅ Updated to match your final design:
+# - Form: Fourier (n_coeff=15, canny) + Orientation (bins=36, canny)
+# - Texture: Tamura + Gabor
+# - Color: HSV histogram ONLY (H=8, S,V=8)
 EXTRACTORS = [
-    FourierDescriptorExtractor(n_coeff=40),
-    OrientationHistogramExtractor(bins=36),
+    FourierDescriptorExtractor(n_coeff=15, contour_mode="canny"),
+    OrientationHistogramExtractor(bins=36, contour_mode="canny"),
     TamuraExtractor(kmax=4, n_bins=16),
     GaborExtractor(n_scales=3, n_orientations=4),
-    HSVHistogramExtractor(h_bins=4, sv_bins=4),
-    DominantColorsExtractor(n_colors=3),
+    HSVHistogramExtractor(h_bins=8, sv_bins=8),
 ]
 
 FEATURE_SERVICE = FeatureExtractionService(EXTRACTORS)
 SIMILARITY_SERVICE = SimilarityComputer()
-
 
 # -----------------------------------------------------------------------------
 # Utilities
@@ -44,7 +45,6 @@ def _to_numpy(obj: Any) -> Any:
             return [_to_numpy(v) for v in obj]
     return obj
 
-
 # -----------------------------------------------------------------------------
 # Query feature extraction (used by API)
 # -----------------------------------------------------------------------------
@@ -57,7 +57,6 @@ def extract_query_features(
     Returns dict with per-category features including 'combined' vectors.
     """
     return FEATURE_SERVICE.extract(image, categories=categories)
-
 
 # -----------------------------------------------------------------------------
 # Core similarity search (Mongo / in-memory features)

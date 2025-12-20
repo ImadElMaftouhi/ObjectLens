@@ -17,14 +17,15 @@ export async function detectObjects(file) {
   return res.json()
 }
 
-// object crop → Top-K (with optional class filtering)
+// object crop → Top-K (with optional class filtering + optional descriptor viz)
 export async function searchTopK({
   blob,
   filename,
   topK = 20,
   queryClass = null,
   sameClassOnly = true,
-  metric = "cosine"
+  metric = "cosine",
+  includeViz = false // ✅ NEW
 }) {
   const form = new FormData()
 
@@ -44,6 +45,9 @@ export async function searchTopK({
   const url = new URL(`${API_BASE}/api/search/topk`)
   url.searchParams.set("top_k", String(k))
   url.searchParams.set("metric", String(metric).toLowerCase())
+
+  // ✅ NEW: ask backend to include descriptor visualizations
+  url.searchParams.set("include_viz", String(Boolean(includeViz)))
 
   // optional: only meaningful if queryClass exists
   if (queryClass) {

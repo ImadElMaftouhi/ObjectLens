@@ -14,6 +14,9 @@ from app.services.compute_similarity import (
     search_with_class_filter,
 )
 
+# ✅ NEW: build meaningful descriptor visualizations (no recomputation)
+from app.utils.descriptor_viz import build_query_descriptor_viz
+
 router = APIRouter(prefix="/search", tags=["search"])
 
 # -----------------------------------------------------------------------------
@@ -52,8 +55,8 @@ def _load_cache_from_mongo() -> None:
             "objects.bbox": 1,
             "objects.class_id": 1,
             "objects.class_name": 1,
-            "objects.confidence": 1,   # optional but recommended
-            "objects.features": 1,     # ✅ new
+            "objects.confidence": 1,
+            "objects.features": 1,
         },
     )
 
@@ -144,17 +147,19 @@ async def topk(
     file: UploadFile = File(...),
     top_k: int = Query(default=settings.TOPK_DEFAULT, ge=1, le=200),
     metric: str = Query(default="cosine"),
-    # ✅ class filtering (frontend can send this now or later)
     query_class: str | None = Form(None),
     same_class_only: bool = Query(default=True),
+    # ✅ NEW: optionally return descriptor visualizations for the query crop
+    include_viz: bool = Query(default=False),
 ):
     """
     Upload an object crop -> extract query features -> retrieve Top-K objects.
-    Then aggregate into Top-K images by best object score.
+    Optionally returns meaningful descriptor visualizations for the query object.
 
     Returns:
       - best_images: unique images sorted by best object score
       - best_objects: raw top objects (debug)
+      - query_descriptors (optional): summaries + base64 PNGs
     """
     global _BASE_FEATURES
 
@@ -175,13 +180,20 @@ async def topk(
     if img is None:
         return {"ok": False, "error": "Could not decode uploaded image."}
 
-    # Extract query features from crop
+    # Extract query features from crop (already includes combined vectors)
     q_feats = extract_query_features(img)
 
-    # Enable class filtering only if we actually have query_class
+    # Optional: build professor-friendly descriptor visualizations (NO recomputation)
+    query_descriptors = None
+    if include_viz:
+        try:
+            query_descriptors = build_query_descriptor_viz(img, q_feats)
+        except Exception as e:
+            # Don't fail the search if viz fails
+            query_descriptors = {"error": str(e)}
+
     effective_same_class = bool(same_class_only and query_class)
 
-    # Get top matched OBJECTS
     best_objects = search_with_class_filter(
         query_features=q_feats,
         query_class=query_class or "unknown",
@@ -192,7 +204,6 @@ async def topk(
         same_class_only=effective_same_class,
     )
 
-    # Aggregate -> best per image
     best_per_image: Dict[str, Dict[str, Any]] = {}
     for obj in best_objects:
         image_path = obj["image_path"]
@@ -210,21 +221,26 @@ async def topk(
                 "best_confidence": float(obj.get("confidence", 0.0)),
             }
 
-    # Sort unique images by score
     best_images = sorted(best_per_image.values(), key=lambda x: x["score"], reverse=True)
     best_images = best_images[: min(int(top_k), len(best_images))]
 
-    # Add URL usable by frontend
     for item in best_images:
         item["image_url"] = f"/dataset/{item['image_path']}"
 
-    return {
+    resp = {
         "ok": True,
         "top_k": int(top_k),
         "metric": metric,
         "same_class_only": effective_same_class,
         "query_class": query_class,
         "best_images": best_images,
-        "best_objects": best_objects,  # debug: per-object matches
+        "best_objects": best_objects,
         "query_feature_categories": list(q_feats.keys()),
     }
+
+    # ✅ Only add this key when requested
+    if include_viz:
+        resp["query_descriptors"] = query_descriptors
+
+    return resp
+ 

@@ -12,14 +12,12 @@ from app.core.config import settings
 from app.db.mongo import get_collection
 from app.services.yolo_service import YoloService
 
-# ✅ use the new extractor service (same config as API)
+# ✅ use the extractor service config (MUST match API)
 from app.services.compute_similarity import FEATURE_SERVICE
 
 
-SUPPORTED_EXTS = {
-    ".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp",
-    ".JPG", ".JPEG", ".PNG"
-}
+# Use lower-case suffix matching
+SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 
 
 def list_images(dataset_root: Path, split: str) -> List[Path]:
@@ -27,7 +25,10 @@ def list_images(dataset_root: Path, split: str) -> List[Path]:
     if not img_dir.exists():
         raise FileNotFoundError(f"Image dir not found: {img_dir}")
 
-    paths = [p for p in img_dir.rglob("*") if p.is_file() and p.suffix in SUPPORTED_EXTS]
+    paths = [
+        p for p in img_dir.rglob("*")
+        if p.is_file() and p.suffix.lower() in SUPPORTED_EXTS
+    ]
     paths.sort()
     return paths
 
@@ -38,18 +39,25 @@ def label_path_for_image(dataset_root: Path, split: str, img_path: Path) -> Path
 
 def yolo_line_to_bbox(line: str, w: int, h: int) -> Optional[Tuple[int, int, int, int, int]]:
     """
-    YOLO label: class_id x_center y_center width height (often normalized 0..1)
-    Returns: (class_id, x1, y1, x2, y2)
+    YOLO label line:
+        class_id x_center y_center width height
+    often normalized in [0,1].
+
+    Returns:
+        (class_id, x1, y1, x2, y2) with x2,y2 end-exclusive for slicing.
     """
     parts = line.strip().split()
     if len(parts) < 5:
         return None
 
-    class_id = int(float(parts[0]))
-    x = float(parts[1])
-    y = float(parts[2])
-    bw = float(parts[3])
-    bh = float(parts[4])
+    try:
+        class_id = int(float(parts[0]))
+        x = float(parts[1])
+        y = float(parts[2])
+        bw = float(parts[3])
+        bh = float(parts[4])
+    except Exception:
+        return None
 
     normalized = (x <= 1.5 and y <= 1.5 and bw <= 1.5 and bh <= 1.5)
     if normalized:
@@ -58,15 +66,16 @@ def yolo_line_to_bbox(line: str, w: int, h: int) -> Optional[Tuple[int, int, int
         bw *= w
         bh *= h
 
-    x1 = int(round(x - bw / 2))
-    y1 = int(round(y - bh / 2))
-    x2 = int(round(x + bw / 2))
-    y2 = int(round(y + bh / 2))
+    x1 = int(round(x - bw / 2.0))
+    y1 = int(round(y - bh / 2.0))
+    x2 = int(round(x + bw / 2.0))
+    y2 = int(round(y + bh / 2.0))
 
+    # Clamp (x2,y2 are end-exclusive, so allow x2==w, y2==h)
     x1 = max(0, min(w - 1, x1))
     y1 = max(0, min(h - 1, y1))
-    x2 = max(0, min(w, x2))
-    y2 = max(0, min(h, y2))
+    x2 = max(1, min(w, x2))
+    y2 = max(1, min(h, y2))
 
     if x2 <= x1 or y2 <= y1:
         return None
@@ -93,7 +102,12 @@ def to_jsonable(x: Any) -> Any:
     return x
 
 
-def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], drop: bool) -> Dict[str, Any]:
+def index_split_to_mongo(
+    dataset_root: str,
+    split: str,
+    limit: Optional[int],
+    drop: bool
+) -> Dict[str, Any]:
     root = Path(dataset_root)
 
     # ✅ get class names from YOLO weights
@@ -127,10 +141,22 @@ def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], dr
         rel_image_path = str(img_path.relative_to(root)).replace("\\", "/")
         lbl_path = label_path_for_image(root, split, img_path)
 
-        objects: List[Dict[str, Any]] = []
-        lines = lbl_path.read_text(encoding="utf-8").splitlines() if lbl_path.exists() else []
+        # Read label lines safely
+        if lbl_path.exists():
+            try:
+                lines = lbl_path.read_text(encoding="utf-8").splitlines()
+            except Exception:
+                # fallback (avoid crashing indexing)
+                try:
+                    lines = lbl_path.read_text(errors="ignore").splitlines()
+                except Exception:
+                    lines = []
+        else:
+            lines = []
 
+        objects: List[Dict[str, Any]] = []
         obj_idx = 0
+
         for line in lines:
             if not line.strip():
                 continue
@@ -140,8 +166,12 @@ def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], dr
                 continue
 
             class_id, x1, y1, x2, y2 = parsed
-            obj_crop = crop(img, x1, y1, x2, y2)
 
+            obj_crop = crop(img, x1, y1, x2, y2)
+            if obj_crop.size == 0 or obj_crop.shape[0] < 2 or obj_crop.shape[1] < 2:
+                continue
+
+            # IMPORTANT: FeatureExtractionService returns dict with per-category feats + "combined"
             feats = FEATURE_SERVICE.extract(obj_crop, categories=["form", "texture", "color"])
 
             ok_combined = (
@@ -152,14 +182,16 @@ def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], dr
             if not ok_combined:
                 continue
 
-            objects.append({
-                "object_id": int(obj_idx),  # ✅ IMPORTANT
-                "bbox": [int(x1), int(y1), int(x2), int(y2)],
-                "class_id": int(class_id),
-                "class_name": class_names.get(int(class_id), str(class_id)),
-                "confidence": 1.0,
-                "features": to_jsonable(feats),
-            })
+            objects.append(
+                {
+                    "object_id": int(obj_idx),  # ✅ IMPORTANT
+                    "bbox": [int(x1), int(y1), int(x2), int(y2)],
+                    "class_id": int(class_id),
+                    "class_name": class_names.get(int(class_id), str(class_id)),
+                    "confidence": 1.0,  # labels are ground-truth => keep 1.0
+                    "features": to_jsonable(feats),
+                }
+            )
             obj_idx += 1
 
         doc = {
@@ -175,7 +207,12 @@ def index_split_to_mongo(dataset_root: str, split: str, limit: Optional[int], dr
         inserted += 1
         total_objects += len(objects)
 
-    return {"ok": True, "images_indexed": inserted, "objects_indexed": total_objects, "split": split}
+    return {
+        "ok": True,
+        "images_indexed": inserted,
+        "objects_indexed": total_objects,
+        "split": split,
+    }
 
 
 def main():
