@@ -240,8 +240,7 @@ VITE_API_BASE=http://localhost:8000
 - [Logic Flow](docs/logic_flow.md)
 
 ## License
-
-[Add your license here]
+Apache License - Version 2.0, January 2004
 
 ## Acknowledgments
 
