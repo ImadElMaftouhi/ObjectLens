@@ -91,6 +91,7 @@ def to_jsonable(x: Any) -> Any:
     """Recursively convert numpy types to plain Python types for MongoDB."""
     if isinstance(x, np.ndarray):
         return x.astype(float).tolist()
+        return x.astype(float).tolist()
     if isinstance(x, (np.float32, np.float64)):
         return float(x)
     if isinstance(x, (np.int32, np.int64)):
@@ -110,7 +111,7 @@ def index_split_to_mongo(
 ) -> Dict[str, Any]:
     root = Path(dataset_root)
 
-    # ✅ get class names from YOLO weights
+    # ✅ get class names from YOLO weights (single source of truth)
     yolo = YoloService(
         weights_path=settings.YOLO_WEIGHTS,
         conf=settings.YOLO_CONF,
@@ -218,7 +219,8 @@ def index_split_to_mongo(
 def main():
     parser = argparse.ArgumentParser(description="Index dataset split objects into MongoDB.")
     parser.add_argument("--dataset-root", default=settings.DATASET_ROOT)
-    parser.add_argument("--split", default=getattr(settings, "DATASET_SPLIT", "val"))
+    # ✅ default to TRAIN now
+    parser.add_argument("--split", default="train")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--drop", action="store_true")
     args = parser.parse_args()

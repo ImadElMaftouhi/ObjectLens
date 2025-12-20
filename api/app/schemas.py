@@ -11,12 +11,11 @@ class BBoxXYWH(BaseModel):
 
 class DetectionOut(BaseModel):
     id: int
-    bbox_xyxy: List[int]          # [x1, y1, x2, y2]
-    bbox: BBoxXYWH                # UI-friendly format
+    bbox_xyxy: List[int]  # [x1, y1, x2, y2]
+    bbox: BBoxXYWH        # what the UI uses (x, y, w, h)
     class_id: int
     class_name: str
     confidence: float
-    # ❌ thumbnail removed
 
 
 class DetectResponse(BaseModel):

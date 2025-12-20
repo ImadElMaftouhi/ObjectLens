@@ -18,13 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve dataset images directly (Option A)
-# Example URL: /dataset/images/val/xxx.jpg
-app.mount(
-    "/dataset",
-    StaticFiles(directory=settings.DATASET_ROOT, check_dir=False),
-    name="dataset",
-)
+# ✅ THIS is where your indexed dataset images really are:
+# /data/imagenet_yolo15/images/train/...  (or val, depending on what you indexed)
+app.mount("/dataset", StaticFiles(directory=settings.DATASET_ROOT), name="dataset")
 
 app.include_router(detect_router, prefix="/api")
 app.include_router(search_router, prefix="/api")

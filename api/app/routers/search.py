@@ -37,6 +37,40 @@ def _to_numpy(obj: Any) -> Any:
     return obj
 
 
+def _to_numpy_features(feats: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert features loaded from Mongo (lists) back to numpy arrays,
+    matching the structure produced by FeatureExtractionService.extract().
+    """
+    out: Dict[str, Any] = {}
+
+    for cat_name, cat_val in feats.items():
+        if not isinstance(cat_val, dict):
+            continue
+
+        out_cat: Dict[str, Any] = {}
+
+        for k, v in cat_val.items():
+            # combined vector
+            if k == "combined":
+                out_cat["combined"] = np.array(v, dtype=np.float32)
+                continue
+
+            # extractor entry: {'vector': ..., 'metadata': ..., 'name': ...}
+            if isinstance(v, dict) and "vector" in v:
+                out_cat[k] = {
+                    "vector": np.array(v["vector"], dtype=np.float32),
+                    "metadata": v.get("metadata", {}),
+                    "name": v.get("name", k),
+                }
+            else:
+                out_cat[k] = v
+
+        out[cat_name] = out_cat
+
+    return out
+
+
 def _load_cache_from_mongo() -> None:
     """
     Load object-level features from MongoDB into memory in the structure required by

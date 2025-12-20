@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile, File
+
 from app.core.config import settings
 from app.services.yolo_service import YoloService
 from app.utils.images import bytes_to_bgr
