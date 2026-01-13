@@ -379,7 +379,6 @@ class TamuraExtractor(TextureExtractor):
         sigma2 = float(np.var(img))
         alpha4 = mu4 / (sigma2 ** 2 + 1e-8)
         return float((sigma2 ** 0.5) / (alpha4 ** 0.25 + 1e-8))
-
     # ---------------------------
     # FIX #2: Directionality (proper orientation + magnitude weighting)
     # ---------------------------
