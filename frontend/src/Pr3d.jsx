@@ -1,5 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import ModelViewer from "./components/ModelViewer"
+import { API_BASE } from "./api"
 
 export default function Pr3d() {
   const navigate = useNavigate()
@@ -7,6 +9,7 @@ export default function Pr3d() {
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState([])
   const [selectedModel, setSelectedModel] = useState(null)
+  const [topK, setTopK] = useState(5)
 
   const styles = {
     page: {
@@ -29,6 +32,14 @@ export default function Pr3d() {
       background:
         "linear-gradient(180deg, rgba(12,18,30,0.9), rgba(8,12,18,0.9))",
       border: "1px solid rgba(31,42,61,0.9)"
+    },
+    input: {
+      borderRadius: 10,
+      border: "1px solid rgba(255,255,255,0.04)",
+      background: "transparent",
+      color: "#e6eefb",
+      padding: "8px 10px",
+      width: 84
     },
     title: { fontSize: 18, fontWeight: 900, margin: 0 },
     backBtn: {
@@ -58,14 +69,47 @@ export default function Pr3d() {
     }
 
     setLoading(true)
-    setTimeout(() => {
-      setResults([
-        { id: 1, name: "Model 1", similarity: 0.95, thumbnail: "🔷" },
-        { id: 2, name: "Model 2", similarity: 0.87, thumbnail: "🔷" },
-        { id: 3, name: "Model 3", similarity: 0.76, thumbnail: "🔷" }
-      ])
+    try {
+      const k = Math.max(1, Math.min(200, Number(topK) || 5))
+      const url = `${API_BASE}/api/samples/class?limit=${k}`
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`samples API returned ${res.status}`)
+      const data = await res.json()
+      const files = data.files || []
+      let mapped = files.map((f, i) => ({
+        id: i + 1,
+        name: `Model ${i + 1}`,
+        similarity: Math.max(0.5, Math.random()),
+        thumbnailUrl: null,
+        sampleUrl: f.startsWith("/raw/") ? API_BASE + f : f
+      }))
+      // If backend returned fewer than k files, duplicate entries to fill slots for testing
+      if (mapped.length < k) {
+        if (mapped.length === 0) {
+          const fallback = API_BASE + "/raw/3D%20Models/Amphora/Amphora_1.obj"
+          mapped = Array.from({ length: k }).map((_, i) => ({
+            id: i + 1,
+            name: `Model ${i + 1}`,
+            similarity: Math.max(0.5, Math.random()),
+            thumbnailUrl: null,
+            sampleUrl: fallback
+          }))
+        } else {
+          const orig = mapped.slice()
+          while (mapped.length < k) {
+            const next = orig[mapped.length % orig.length]
+            mapped.push({ ...next, id: mapped.length + 1 })
+          }
+        }
+      }
+      setResults(mapped)
+    } catch (err) {
+      console.error("search samples failed", err)
+      // fall back to empty results
+      setResults([])
+    } finally {
       setLoading(false)
-    }, 900)
+    }
   }
 
   const handleReset = () => {
@@ -103,6 +147,23 @@ export default function Pr3d() {
             <h3 style={styles.title}>Upload 3D Model</h3>
 
             <div style={{ marginTop: 12 }}>
+              {file && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 8 }}>
+                    Uploaded Model Preview
+                  </div>
+                  <div
+                    style={{
+                      width: "100%",
+                      height: 320,
+                      borderRadius: 8,
+                      overflow: "hidden"
+                    }}
+                  >
+                    <ModelViewer file={file} live={true} />
+                  </div>
+                </div>
+              )}
               <label style={{ display: "block", cursor: "pointer" }}>
                 <div
                   style={{
@@ -146,6 +207,27 @@ export default function Pr3d() {
                 </div>
               </div>
             )}
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginTop: 12,
+                alignItems: "center"
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, opacity: 0.85 }}>Top-K</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={topK}
+                  onChange={(e) => setTopK(Number(e.target.value))}
+                  style={styles.input}
+                />
+              </div>
+            </div>
 
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
               <button
@@ -252,13 +334,15 @@ export default function Pr3d() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gridTemplateColumns: "repeat(2, 1fr)",
                     gap: 12
                   }}
                 >
                   {results.map((result, idx) => (
-                    <button
+                    <div
                       key={result.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setSelectedModel(result.id)}
                       style={{
                         textAlign: "left",
@@ -269,21 +353,26 @@ export default function Pr3d() {
                             ? "rgba(124,58,237,0.12)"
                             : "transparent",
                         border: "1px solid rgba(255,255,255,0.03)",
-                        cursor: "pointer"
+                        cursor: "pointer",
+                        minHeight: 320,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between"
                       }}
                     >
                       <div
                         style={{
-                          height: 110,
+                          height: 220,
                           borderRadius: 6,
-                          background: "rgba(255,255,255,0.02)",
+                          overflow: "hidden",
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
-                          color: "rgba(255,255,255,0.25)"
+                          justifyContent: "center"
                         }}
                       >
-                        Preview
+                        <div style={{ width: "100%", height: "100%" }}>
+                          <ModelViewer url={result.sampleUrl} live={true} />
+                        </div>
                       </div>
                       <div style={{ marginTop: 10, fontWeight: 800 }}>
                         {result.name}
@@ -291,31 +380,10 @@ export default function Pr3d() {
                       <div style={{ marginTop: 6, opacity: 0.85 }}>
                         Similarity: {(result.similarity * 100).toFixed(1)}%
                       </div>
-                      <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-                        <button
-                          style={{
-                            padding: "8px 10px",
-                            borderRadius: 8,
-                            background: "transparent",
-                            border: "1px solid rgba(255,255,255,0.04)",
-                            color: "#e6eefb"
-                          }}
-                        >
-                          View
-                        </button>
-                        <button
-                          style={{
-                            padding: "8px 10px",
-                            borderRadius: 8,
-                            background: "transparent",
-                            border: "1px solid rgba(255,255,255,0.04)",
-                            color: "#e6eefb"
-                          }}
-                        >
-                          Download
-                        </button>
+                      <div style={{ marginTop: 8 }}>
+                        <small style={{ opacity: 0.8 }}>Test item</small>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}

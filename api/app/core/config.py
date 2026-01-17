@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # =====================
     DATASET_ROOT: str = "/data/imagenet_yolo15"
     DATASET_SPLIT: str = "val"
+    # Optional raw 3D data root (for development previews)
+    RAW_DATA_ROOT: str = "/data/raw"
 
     # =====================
     # Image storage

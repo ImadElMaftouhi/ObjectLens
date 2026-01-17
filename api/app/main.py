@@ -6,6 +6,7 @@ from pathlib import Path
 from app.core.config import settings
 from app.routers.detect import router as detect_router
 from app.routers.search import router as search_router
+from app.routers.samples import router as samples_router
 
 app = FastAPI(title="ObjectLens API")
 
@@ -26,8 +27,16 @@ app.mount(
     name="dataset",
 )
 
+# Serve raw 3D files mounted into the backend at settings.RAW_DATA_ROOT
+app.mount(
+    "/raw",
+    StaticFiles(directory=settings.RAW_DATA_ROOT, check_dir=False),
+    name="raw",
+)
+
 app.include_router(detect_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
+app.include_router(samples_router, prefix="/api")
 
 
 @app.get("/health")
