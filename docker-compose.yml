@@ -79,6 +79,7 @@ services:
       - ./api:/app
       - ./images:/data/images
       - ./imagenet_yolo15:/data/imagenet_yolo15:ro
+      - ./3D/data/raw:/data/raw:ro
       - pip_cache:/root/.cache/pip
 
   frontend:
@@ -93,6 +94,7 @@ services:
       - "5173:5173"
     volumes:
       - ./frontend:/usr/src/app/frontend
+      # frontend source mount only; raw 3D data is served from backend (/data/raw)
 
 volumes:
   mongo_data:

@@ -1,10 +1,69 @@
 import { useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { detectObjects, searchTopK } from "./api"
 import { cropToBlob } from "./utils/crop"
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000"
 
-export default function App() {
+function ImgB64({ b64, mime = "image/png", alt, style }) {
+  if (!b64) return null
+  return (
+    <img
+      src={`data:${mime};base64,${b64}`}
+      alt={alt || "viz"}
+      style={style}
+      onError={(e) => {
+        e.currentTarget.style.opacity = "0.25"
+      }}
+    />
+  )
+}
+
+function StatPill({ label, value }) {
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        gap: 8,
+        alignItems: "center",
+        padding: "7px 10px",
+        borderRadius: 999,
+        border: "1px solid #243045",
+        background: "rgba(15,22,38,0.65)",
+        fontSize: 12
+      }}
+    >
+      <span style={{ opacity: 0.7 }}>{label}</span>
+      <span style={{ fontWeight: 900 }}>{value}</span>
+    </div>
+  )
+}
+
+function SectionHeader({ title, subtitle, right }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        gap: 12
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 900, opacity: 0.95 }}>
+          {title}
+        </h3>
+        {subtitle ? (
+          <div style={{ fontSize: 12, opacity: 0.7 }}>{subtitle}</div>
+        ) : null}
+      </div>
+      {right ? <div>{right}</div> : null}
+    </div>
+  )
+}
+
+export default function Pr2d() {
+  const navigate = useNavigate()
   const [file, setFile] = useState(null)
   const [imageUrl, setImageUrl] = useState(null)
 
@@ -18,14 +77,23 @@ export default function App() {
   const [topK, setTopK] = useState(20)
   const [topkResult, setTopkResult] = useState(null)
 
+  // ✅ NEW: descriptor viz toggle
+  const [showDescriptors, setShowDescriptors] = useState(true)
+
   const selected = useMemo(() => {
     if (selectedIndex === null) return null
     return crops[selectedIndex] || null
   }, [crops, selectedIndex])
 
+  function revokeCropUrls(list) {
+    ;(list || []).forEach((c) => {
+      if (c?.previewUrl) URL.revokeObjectURL(c.previewUrl)
+    })
+  }
+
   function resetAll() {
     if (imageUrl) URL.revokeObjectURL(imageUrl)
-    crops.forEach((c) => c.previewUrl && URL.revokeObjectURL(c.previewUrl))
+    revokeCropUrls(crops)
 
     setFile(null)
     setImageUrl(null)
@@ -39,9 +107,17 @@ export default function App() {
   async function onPickFile(e) {
     const f = e.target.files?.[0]
     if (!f) return
-    resetAll()
+
+    if (imageUrl) URL.revokeObjectURL(imageUrl)
+    revokeCropUrls(crops)
+
     setFile(f)
     setImageUrl(URL.createObjectURL(f))
+
+    setDetectResult(null)
+    setCrops([])
+    setSelectedIndex(null)
+    setTopkResult(null)
     setStatus("Image loaded. Click Detect.")
   }
 
@@ -55,6 +131,7 @@ export default function App() {
       setDetectResult(res)
 
       if (!res?.detections?.length) {
+        revokeCropUrls(crops)
         setCrops([])
         setSelectedIndex(null)
         setTopkResult(null)
@@ -63,6 +140,7 @@ export default function App() {
       }
 
       setStatus(`Detected ${res.detections.length} object(s). Cropping...`)
+      revokeCropUrls(crops)
 
       const cropItems = []
       for (const det of res.detections) {
@@ -85,7 +163,7 @@ export default function App() {
   async function runTopK() {
     if (!selected || !detectResult) return
     setLoading(true)
-    setStatus("Searching Top-K...")
+    setStatus("Searching Top-K (class-filtered)...")
 
     try {
       const det = selected.det
@@ -94,7 +172,11 @@ export default function App() {
       const topk = await searchTopK({
         blob: selected.blob,
         filename: `query_${detectResult.image_id || "img"}_${det.id}.png`,
-        topK: k
+        topK: k,
+        queryClass: det.class_name,
+        sameClassOnly: true,
+        metric: "cosine",
+        includeViz: Boolean(showDescriptors) // ✅ NEW
       })
 
       setTopkResult(topk)
@@ -119,15 +201,21 @@ export default function App() {
       }
     : null
 
+  const qd = topkResult?.query_descriptors || null
+  const qdImgs = qd?.images_b64 || {}
+  const qdSum = qd?.summaries || {}
+  const tamura = qdSum?.texture?.tamura || null
+
   const styles = {
     page: {
       minHeight: "100vh",
-      background: "#0b0f17",
+      background:
+        "radial-gradient(1200px 700px at 15% -10%, rgba(79,124,255,0.25), transparent 55%), #0b0f17",
       color: "#eaeef7",
       fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
       padding: 24
     },
-    container: { maxWidth: 1200, margin: "0 auto" },
+    container: { maxWidth: 1240, margin: "0 auto" },
     header: {
       display: "flex",
       alignItems: "flex-end",
@@ -136,8 +224,8 @@ export default function App() {
       marginBottom: 18
     },
     titleWrap: { display: "flex", flexDirection: "column", gap: 6 },
-    title: { fontSize: 22, fontWeight: 800, margin: 0 },
-    subtitle: { margin: 0, opacity: 0.8, fontSize: 13 },
+    title: { fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: 0.2 },
+    subtitle: { margin: 0, opacity: 0.8, fontSize: 13, lineHeight: 1.35 },
     pill: {
       display: "inline-flex",
       alignItems: "center",
@@ -145,38 +233,42 @@ export default function App() {
       padding: "8px 12px",
       borderRadius: 999,
       border: "1px solid #243045",
-      background: "#0f1626",
+      background: "rgba(15,22,38,0.75)",
       fontSize: 12,
-      opacity: 0.9
+      opacity: 0.95,
+      backdropFilter: "blur(8px)"
     },
     grid: {
       display: "grid",
-      gridTemplateColumns: "1.1fr 0.9fr",
+      gridTemplateColumns: "1.05fr 0.95fr",
       gap: 16
     },
     card: {
-      border: "1px solid #1f2a3d",
-      background: "linear-gradient(180deg, #0f1626 0%, #0b0f17 100%)",
-      borderRadius: 16,
+      border: "1px solid rgba(31,42,61,0.9)",
+      background:
+        "linear-gradient(180deg, rgba(15,22,38,0.85) 0%, rgba(11,15,23,0.85) 100%)",
+      borderRadius: 18,
       padding: 16,
-      boxShadow: "0 8px 24px rgba(0,0,0,0.35)"
+      boxShadow: "0 10px 28px rgba(0,0,0,0.35)",
+      backdropFilter: "blur(8px)"
     },
-    cardTitle: { margin: 0, fontSize: 14, opacity: 0.9, fontWeight: 700 },
+    cardTitle: { margin: 0, fontSize: 14, opacity: 0.92, fontWeight: 800 },
     row: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
     btn: (variant = "primary") => {
       const base = {
         borderRadius: 12,
         padding: "10px 12px",
-        fontWeight: 700,
+        fontWeight: 800,
         fontSize: 13,
         border: "1px solid transparent",
         cursor: "pointer",
-        transition: "transform 0.05s ease"
+        transition: "transform 0.05s ease, opacity 0.15s ease",
+        userSelect: "none"
       }
       if (variant === "primary")
         return {
           ...base,
-          background: "#4f7cff",
+          background: "linear-gradient(180deg,#4f7cff 0%, #3b66f5 100%)",
           borderColor: "#4f7cff",
           color: "#061021"
         }
@@ -193,7 +285,7 @@ export default function App() {
     input: {
       borderRadius: 12,
       border: "1px solid #243045",
-      background: "#0b0f17",
+      background: "rgba(11,15,23,0.65)",
       color: "#eaeef7",
       padding: "10px 12px",
       fontSize: 13,
@@ -204,16 +296,16 @@ export default function App() {
       padding: "10px 12px",
       borderRadius: 12,
       border: "1px solid #243045",
-      background: "#0b0f17",
+      background: "rgba(11,15,23,0.65)",
       fontSize: 13,
       opacity: 0.95
     },
     imgFrame: {
       marginTop: 12,
-      borderRadius: 14,
+      borderRadius: 16,
       overflow: "hidden",
       border: "1px solid #243045",
-      background: "#050812"
+      background: "rgba(5,8,18,0.85)"
     },
     mainImg: {
       width: "100%",
@@ -228,13 +320,14 @@ export default function App() {
       gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
       gap: 12
     },
-    cropBtn: (selected) => ({
+    cropBtn: (isSelected) => ({
       textAlign: "left",
-      borderRadius: 14,
-      border: selected ? "1px solid #4f7cff" : "1px solid #243045",
-      background: selected ? "rgba(79,124,255,0.10)" : "#0b0f17",
+      borderRadius: 16,
+      border: isSelected ? "1px solid #4f7cff" : "1px solid #243045",
+      background: isSelected ? "rgba(79,124,255,0.10)" : "rgba(11,15,23,0.65)",
       padding: 10,
-      cursor: "pointer"
+      cursor: "pointer",
+      transition: "transform 0.06s ease, border-color 0.15s ease"
     }),
     cropImg: {
       width: "100%",
@@ -244,18 +337,18 @@ export default function App() {
       background: "#000",
       border: "1px solid #1f2a3d"
     },
-    label: { fontSize: 12, opacity: 0.85 },
-    strong: { fontSize: 13, fontWeight: 800 },
+    label: { fontSize: 12, opacity: 0.82 },
+    strong: { fontSize: 13, fontWeight: 900 },
     resultGrid: {
       marginTop: 12,
       display: "grid",
-      gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+      gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
       gap: 12
     },
     resultCard: {
-      borderRadius: 14,
+      borderRadius: 16,
       border: "1px solid #243045",
-      background: "#0b0f17",
+      background: "rgba(11,15,23,0.65)",
       padding: 10
     },
     resultImg: {
@@ -265,6 +358,39 @@ export default function App() {
       borderRadius: 12,
       background: "#000",
       border: "1px solid #1f2a3d"
+    },
+
+    // Descriptors UI
+    vizGrid: {
+      marginTop: 12,
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 12
+    },
+    vizCard: {
+      borderRadius: 16,
+      border: "1px solid #243045",
+      background: "rgba(11,15,23,0.65)",
+      padding: 12,
+      overflow: "hidden"
+    },
+    vizImg: {
+      width: "100%",
+      height: 220,
+      objectFit: "contain",
+      borderRadius: 12,
+      border: "1px solid #1f2a3d",
+      background: "#000",
+      display: "block"
+    },
+    vizSmallImg: {
+      width: "100%",
+      height: 180,
+      objectFit: "contain",
+      borderRadius: 12,
+      border: "1px solid #1f2a3d",
+      background: "#000",
+      display: "block"
     }
   }
 
@@ -273,17 +399,26 @@ export default function App() {
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
-          <div style={styles.titleWrap}>
-            <h1 style={styles.title}>ObjectLens</h1>
-            <p style={styles.subtitle}>
-              Upload an image → detect objects → select one crop → retrieve
-              similar objects (Top-K)
-            </p>
-          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={() => navigate("/")}
+              style={{
+                borderRadius: 12,
+                padding: "8px 10px",
+                fontWeight: 800,
+                fontSize: 13,
+                border: "1px solid rgba(36,48,69,0.9)",
+                background: "transparent",
+                color: "#cfe0ff",
+                cursor: "pointer"
+              }}
+            >
+              ← Back
+            </button>
 
-          <div style={styles.pill}>
-            <span style={{ opacity: 0.8 }}>API</span>
-            <span style={{ fontWeight: 800 }}>{API_BASE}</span>
+            <div style={styles.titleWrap}>
+              <h1 style={styles.title}>ObjectLens</h1>
+            </div>
           </div>
         </div>
 
@@ -339,7 +474,8 @@ export default function App() {
                   marginLeft: "auto",
                   display: "flex",
                   alignItems: "center",
-                  gap: 8
+                  gap: 10,
+                  flexWrap: "wrap"
                 }}
               >
                 <span style={{ fontSize: 12, opacity: 0.8 }}>Top-K</span>
@@ -351,6 +487,28 @@ export default function App() {
                   onChange={(e) => setTopK(e.target.value)}
                   style={{ ...styles.input, width: 90 }}
                 />
+
+                <label
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 12,
+                    opacity: 0.9,
+                    padding: "7px 10px",
+                    borderRadius: 999,
+                    border: "1px solid #243045",
+                    background: "rgba(11,15,23,0.45)"
+                  }}
+                  title="If enabled, backend returns descriptor visualizations for the selected query crop."
+                >
+                  <input
+                    type="checkbox"
+                    checked={showDescriptors}
+                    onChange={(e) => setShowDescriptors(e.target.checked)}
+                  />
+                  Show descriptors
+                </label>
               </div>
             </div>
 
@@ -406,8 +564,10 @@ export default function App() {
                       </div>
                       <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>
                         conf: {Number(selectedInfo.confidence).toFixed(3)} ·
-                        bbox: x={selectedInfo.bbox.x}, y={selectedInfo.bbox.y},
-                        w={selectedInfo.bbox.w}, h={selectedInfo.bbox.h}
+                        bbox: x=
+                        {selectedInfo.bbox.x}, y={selectedInfo.bbox.y}, w=
+                        {selectedInfo.bbox.w}, h=
+                        {selectedInfo.bbox.h}
                       </div>
                     </div>
                   ) : (
@@ -419,11 +579,11 @@ export default function App() {
 
                 <div
                   style={{
-                    width: 160,
-                    height: 120,
-                    borderRadius: 14,
+                    width: 170,
+                    height: 125,
+                    borderRadius: 16,
                     border: "1px solid #243045",
-                    background: "#050812",
+                    background: "rgba(5,8,18,0.8)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -486,7 +646,7 @@ export default function App() {
                           style={styles.cropImg}
                         />
                         <div style={{ marginTop: 8, fontSize: 12 }}>
-                          <div style={{ fontWeight: 800 }}>
+                          <div style={{ fontWeight: 900 }}>
                             {c.det.class_name}
                           </div>
                           <div style={{ opacity: 0.75 }}>
@@ -501,6 +661,160 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        {/* Descriptors (query object) */}
+        {topkResult?.ok && showDescriptors ? (
+          <div style={{ ...styles.card, marginTop: 16 }}>
+            <SectionHeader
+              title="Query descriptors (meaningful visualizations)"
+              subtitle="Shape: Fourier + Orientation · Texture: Tamura · Color: HSV (Hue + S–V)"
+              right={
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    justifyContent: "flex-end"
+                  }}
+                >
+                  <StatPill
+                    label="metric"
+                    value={String(topkResult.metric || "cosine")}
+                  />
+                  <StatPill
+                    label="Top-K"
+                    value={String(topkResult.top_k || "")}
+                  />
+                  {selectedInfo?.class_name ? (
+                    <StatPill
+                      label="class"
+                      value={String(selectedInfo.class_name)}
+                    />
+                  ) : null}
+                </div>
+              }
+            />
+
+            {qd?.error ? (
+              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.85 }}>
+                ⚠️ Could not build descriptor visualizations: {String(qd.error)}
+              </div>
+            ) : null}
+
+            <div style={styles.vizGrid}>
+              {/* Crop preview */}
+              <div style={styles.vizCard}>
+                <SectionHeader
+                  title="Object crop"
+                  subtitle="Selected query object (context)"
+                />
+                <div style={{ marginTop: 10 }}>
+                  <ImgB64
+                    b64={qdImgs.crop_jpg}
+                    mime="image/jpeg"
+                    alt="query-crop"
+                    style={styles.vizImg}
+                  />
+                </div>
+              </div>
+
+              {/* Tamura */}
+              <div style={styles.vizCard}>
+                <SectionHeader
+                  title="Tamura texture"
+                  subtitle="Coarseness / Contrast / Directionality"
+                  right={
+                    tamura ? (
+                      <div
+                        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+                      >
+                        <StatPill
+                          label="coarse"
+                          value={Number(tamura.coarseness).toFixed(3)}
+                        />
+                        <StatPill
+                          label="contrast"
+                          value={Number(tamura.contrast).toFixed(3)}
+                        />
+                        <StatPill
+                          label="dir"
+                          value={Number(tamura.directionality).toFixed(3)}
+                        />
+                      </div>
+                    ) : null
+                  }
+                />
+                <div style={{ marginTop: 10 }}>
+                  <ImgB64
+                    b64={qdImgs.tamura_png}
+                    alt="tamura"
+                    style={styles.vizImg}
+                  />
+                </div>
+              </div>
+
+              {/* Fourier */}
+              <div style={styles.vizCard}>
+                <SectionHeader
+                  title="Fourier descriptors"
+                  subtitle="Shape signature (15 coefficients)"
+                />
+                <div style={{ marginTop: 10 }}>
+                  <ImgB64
+                    b64={qdImgs.fourier_png}
+                    alt="fourier"
+                    style={styles.vizImg}
+                  />
+                </div>
+              </div>
+
+              {/* Orientation histogram */}
+              <div style={styles.vizCard}>
+                <SectionHeader
+                  title="Orientation histogram"
+                  subtitle="Contour orientations (rotation-aligned)"
+                />
+                <div style={{ marginTop: 10 }}>
+                  <ImgB64
+                    b64={qdImgs.orientation_hist_png}
+                    alt="orientation"
+                    style={styles.vizImg}
+                  />
+                </div>
+              </div>
+
+              {/* Hue */}
+              <div style={styles.vizCard}>
+                <SectionHeader
+                  title="Hue distribution"
+                  subtitle="Dominant hues (HSV H marginal)"
+                />
+                <div style={{ marginTop: 10 }}>
+                  <ImgB64
+                    b64={qdImgs.hue_hist_png}
+                    alt="hue"
+                    style={styles.vizSmallImg}
+                  />
+                </div>
+              </div>
+
+              {/* SV heatmap */}
+              <div style={styles.vizCard}>
+                <SectionHeader
+                  title="S–V distribution"
+                  subtitle="Saturation vs Value (sum over H)"
+                />
+                <div style={{ marginTop: 10 }}>
+                  <ImgB64
+                    b64={qdImgs.sv_heatmap_png}
+                    alt="sv"
+                    style={styles.vizSmallImg}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Results */}
         {topkResult?.ok ? (
