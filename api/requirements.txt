@@ -1,35 +1,49 @@
+# Core API requirements
 fastapi
 uvicorn[standard]
 python-multipart
 pydantic
 pydantic-settings
-
-pymongo
-
-numpy
-opencv-python-headless
-scikit-image
-scikit-learn
-scipy
-Pillow
-
 python-dotenv
-tqdm
 
-# CORS Support
-fastapi-cors
+# Database
+pymongo>=3.12
+sqlalchemy           # For future async DB operations (optional)
+aiosqlite            # For future async DB operations (optional)
 
-# Optional: For async database operations (if needed in future)
-sqlalchemy
-aiosqlite
+# Machine Learning & Scientific Stack
+numpy>=1.20
+scipy>=1.6
+scikit-learn
+scikit-image>=0.19.0
+mahotas>=1.4.12
+opencv-python>=4.5          # Main opencv
+opencv-python-headless      # For headless environments
+tqdm>=4.59                  # Progress bars
+matplotlib>=3.3
+seaborn>=0.12
+Pillow>=8.0
 
-# Optional: For API documentation enhancement
-python-jose
-passlib
+# API Enhancements & Auth
+fastapi-cors                 # CORS Support
+python-jose                  # API documentation & JWT (optional)
+passlib                      # Password hashing
 
-# Jupyter Notebook
+# 3D processing & Visualization
+PyOpenGL>=3.1.5
+glfw>=2.0
+pandas>=1.2
+requests>=2.25
+
+# Jupyter Notebook and Lab (Development & Exploration)
 jupyter
 jupyterlab
 ipywidgets
-matplotlib
 ultralytics
+
+# Note: 
+# - Some overlap is maintained for compatibility across packages.
+# - `[standard]` extra used for uvicorn for convenient prod setup.
+# - Pin additional versions as needed after testing in deployment.
+
+
