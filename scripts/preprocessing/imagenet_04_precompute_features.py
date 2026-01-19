@@ -1,21 +1,20 @@
+import os
+import sys
+import cv2
 import json
 import time
-import os
+import logging
 import numpy as np
-import cv2
-from datetime import datetime
+from tqdm import tqdm
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from datetime import datetime
+from typing import List, Dict, Any
 from ultralytics.models.yolo import YOLO
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
-import logging
 
-import sys
-from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from api.app.services.feature_extraction import (
+from backend.services.feature_extraction import (
     FourierDescriptorExtractor, OrientationHistogramExtractor,
     TamuraExtractor, GaborExtractor,
     HSVHistogramExtractor, DominantColorsExtractor,
@@ -23,11 +22,13 @@ from api.app.services.feature_extraction import (
 )
 
 # -------- Config ----------
-DATA_ROOT = Path("imagenet_yolo15/images")
-OUT_ROOT = Path("features")
-FEATURES_ROOT = Path("features/all")
-LABELS_ROOT = Path("imagenet_yolo15/labels")
-MODEL_PATH = Path("api/models/yolo/best.pt")
+DATA_ROOT = Path("data/imagenet_4_yolo/images")
+OUT_ROOT = Path("data/features")
+FAISS_OUTPUT_DIR = Path("data/index/faiss") # FAISS Index and vectors for fast retrieval
+METADATA_OUTPUT_DIR = Path("data/index/metadata") # Object metadata for MongoDB
+FEATURES_DIR = Path("data/features/all") # All extracted features (*.json)
+LABELS_ROOT = Path("data/imagenet_4_yolo/labels")
+MODEL_PATH = Path("backend/models/yolo/best.pt")
 EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".gif", ".webp", ".JPEG", ".JPG"}
 
 EXTRACTORS = [
@@ -35,7 +36,7 @@ EXTRACTORS = [
     OrientationHistogramExtractor(bins=36),
     TamuraExtractor(kmax=4, n_bins=16),
     GaborExtractor(n_scales=3, n_orientations=4),
-    HSVHistogramExtractor(h_bins=4, sv_bins=4),  # 4×4×4 = 64 dims (was 512!)
+    HSVHistogramExtractor(h_bins=4, sv_bins=4),  # 4×4×4 = 64 dims
     DominantColorsExtractor(n_colors=3),
 ]
 
@@ -44,16 +45,12 @@ FEATURE_SERVICE = FeatureExtractionService(EXTRACTORS)
 # Global model - will be initialized once
 MODEL = None
 
-def get_model():
-    """Lazy load model once per process."""
-    global MODEL
-    if MODEL is None:
-        MODEL = YOLO(MODEL_PATH)
-        MODEL.predict(np.zeros((640, 640, 3), dtype=np.uint8), verbose=False)  # Warmup
-    return MODEL
+# Logging setup - ensure all directories exist
+OUT_ROOT.mkdir(parents=True, exist_ok=True)
+FEATURES_DIR.mkdir(parents=True, exist_ok=True)
+FAISS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+METADATA_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Logging setup
-FEATURES_ROOT.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -65,6 +62,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # -------- Helper Functions ----------
+
+def get_model():
+    """Lazy load model once per process."""
+    global MODEL
+    if MODEL is None:
+        MODEL = YOLO(MODEL_PATH)
+        MODEL.predict(np.zeros((640, 640, 3), dtype=np.uint8), verbose=False)  # Warmup
+    return MODEL
+
 
 def _to_serializable(obj: Any) -> Any:
     """Recursively convert numpy types to native Python types for JSON dumping."""
@@ -227,18 +233,168 @@ def print_summary(results: List[Dict], elapsed: float):
     print("="*60 + "\n")
 
 
-def main(max_workers: int = 4, verify_first: bool = True):
+def build_faiss_index(features_root: Path, faiss_output_dir: Path, metadata_output_dir: Path):
+    """
+    Collect all vectors from JSON files and build FAISS index.
+    
+    Creates:
+    - vectors.npy: All feature vectors (N x D numpy array)
+    - index.faiss: FAISS index for fast similarity search
+    - ids.npy: FAISS ID -> MongoDB _id mapping
+    - metadata.json: Index metadata (dimension, metric, etc.)
+    - object_mapping.json: Full object metadata mapping for MongoDB
+    """
+    try:
+        import faiss
+    except ImportError:
+        logger.error("FAISS not installed. Install with: pip install faiss-cpu (or faiss-gpu)")
+        return False
+    
+    logger.info("Building FAISS index from processed features...")
+    
+    # Ensure output directories exist
+    faiss_output_dir.mkdir(parents=True, exist_ok=True)
+    metadata_output_dir.mkdir(parents=True, exist_ok=True)
+    
+    all_vectors = []
+    all_ids = []  # MongoDB document IDs (composite: image_path__object_idx)
+    object_metadata = []  # Full metadata for each object
+    
+    # Collect vectors from all JSON files
+    json_files = list(features_root.glob("*.json"))
+    if not json_files:
+        logger.warning("No JSON files found to build FAISS index")
+        return False
+    
+    logger.info(f"Collecting vectors from {len(json_files)} JSON files...")
+    
+    for json_file in tqdm(json_files, desc="Collecting vectors", unit="file"):
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            image_path = data.get("image_path", "")
+            if not image_path:
+                continue
+            
+            for obj_idx, obj in enumerate(data.get("objects", [])):
+                if "final_vector" not in obj:
+                    continue
+                
+                vector = np.array(obj["final_vector"], dtype=np.float32)
+                faiss_id = len(all_vectors)  # Sequential FAISS ID
+                
+                # Create composite ID: image_path__object_idx
+                object_id = f"{image_path}__{obj_idx}"
+                
+                all_vectors.append(vector)
+                all_ids.append(object_id)
+                
+                # Store full metadata for MongoDB
+                object_metadata.append({
+                    "faiss_id": int(faiss_id),
+                    "image_path": image_path,
+                    "object_idx": int(obj_idx),
+                    "bbox": obj.get("bbox", []),
+                    "class_id": int(obj.get("class_id", -1)),
+                    "class_name": obj.get("class_name", "unknown"),
+                    "confidence": float(obj.get("confidence", 0.0))
+                })
+                
+        except Exception as e:
+            logger.warning(f"Error reading {json_file.name}: {e}")
+            continue
+    
+    if not all_vectors:
+        logger.error("No vectors collected. Cannot build FAISS index.")
+        return False
+    
+    # Convert to numpy arrays
+    logger.info(f"Converting {len(all_vectors)} vectors to numpy array...")
+    vectors = np.vstack(all_vectors).astype(np.float32)
+    ids_array = np.array(all_ids)
+    
+    dimension = vectors.shape[1]
+    num_vectors = vectors.shape[0]
+    
+    logger.info(f"Vector shape: {vectors.shape} (N={num_vectors}, D={dimension})")
+    
+    # Verify vectors are normalized
+    norms = np.linalg.norm(vectors, axis=1)
+    if not np.allclose(norms, 1.0, atol=0.01):
+        logger.warning(f"Vectors may not be properly normalized. Norm range: [{norms.min():.4f}, {norms.max():.4f}]")
+    
+    # Save raw vectors
+    vectors_path = faiss_output_dir / "vectors.npy"
+    logger.info(f"Saving vectors to {vectors_path}")
+    np.save(vectors_path, vectors)
+    
+    # Save ID mapping
+    ids_path = faiss_output_dir / "ids.npy"
+    logger.info(f"Saving IDs to {ids_path}")
+    np.save(ids_path, ids_array)
+    
+    # Build FAISS index (using Inner Product for cosine similarity since vectors are normalized)
+    logger.info("Building FAISS index (IndexFlatIP for cosine similarity)...")
+    index = faiss.IndexFlatIP(dimension)  # Inner Product = cosine similarity for normalized vectors
+    
+    # Add vectors to index
+    index.add(vectors)
+    
+    # Save FAISS index
+    index_path = faiss_output_dir / "index.faiss"
+    logger.info(f"Saving FAISS index to {index_path}")
+    faiss.write_index(index, str(index_path))
+    
+    # Save index metadata
+    metadata_info = {
+        "num_vectors": int(num_vectors),
+        "dimension": int(dimension),
+        "metric": "cosine",  # Using Inner Product for normalized vectors
+        "index_type": "IndexFlatIP",
+        "created_at": datetime.now().isoformat(),
+        "vectors_file": "vectors.npy",
+        "ids_file": "ids.npy",
+        "index_file": "index.faiss"
+    }
+    
+    metadata_path = faiss_output_dir / "metadata.json"
+    logger.info(f"Saving index metadata to {metadata_path}")
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(metadata_info, f, indent=2)
+    
+    # Save object mapping (for MongoDB lookup)
+    object_mapping_path = metadata_output_dir / "object_mapping.json"
+    logger.info(f"Saving object mapping to {object_mapping_path}")
+    with open(object_mapping_path, "w", encoding="utf-8") as f:
+        json.dump(_to_serializable(object_metadata), f, indent=2)
+    
+    logger.info("✅ FAISS index built successfully!")
+    logger.info(f"   - Vectors: {num_vectors} x {dimension}")
+    logger.info(f"   - Index file: {index_path}")
+    logger.info(f"   - Vectors file: {vectors_path}")
+    logger.info(f"   - IDs file: {ids_path}")
+    logger.info(f"   - Metadata file: {metadata_path}")
+    logger.info(f"   - Object mapping: {object_mapping_path}")
+    
+    return True
+
+
+def main(max_workers: int = 4, verify_first_batch: bool = True):
     """
     Main processing function with parallel execution and progress tracking.
     
     Args:
         max_workers: Number of parallel workers (use 1 for sequential, 2-4 recommended for I/O-bound tasks)
-        verify_first: Verify output format after first batch
+        verify_first_batch: Verify output format after first batch
     
     Note: For YOLO model, use max_workers=1 to avoid model loading issues, or use ProcessPoolExecutor with proper model initialization in each process.
     """
+    # Ensure all output directories exist
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
-    FEATURES_ROOT.mkdir(parents=True, exist_ok=True)
+    FEATURES_DIR.mkdir(parents=True, exist_ok=True)
+    FAISS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    METADATA_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
     # Warm up model before parallel processing
     logger.info("Initializing YOLO model...")
@@ -246,7 +402,7 @@ def main(max_workers: int = 4, verify_first: bool = True):
     logger.info("Model ready!")
     
     logger.info(f"Starting feature extraction pipeline")
-    logger.info(f"Output directory: {FEATURES_ROOT}")
+    logger.info(f"Output directory: {FEATURES_DIR}")
     logger.info(f"Workers: {max_workers}")
 
     for folder in ["train", "val"]:
@@ -272,13 +428,13 @@ def main(max_workers: int = 4, verify_first: bool = True):
         if max_workers == 1:
             # Sequential processing
             for img_path in tqdm(images, desc=f"{folder}", unit="img"):
-                result = process_single_image(img_path, DATA_ROOT, FEATURES_ROOT)
+                result = process_single_image(img_path, DATA_ROOT, FEATURES_DIR)
                 results.append(result)
         else:
             # Parallel processing
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {
-                    executor.submit(process_single_image, img_path, DATA_ROOT, FEATURES_ROOT): img_path
+                    executor.submit(process_single_image, img_path, DATA_ROOT, FEATURES_DIR): img_path
                     for img_path in images
                 }
                 
@@ -289,11 +445,11 @@ def main(max_workers: int = 4, verify_first: bool = True):
         elapsed = time.time() - start_time
         
         # Verify after first batch
-        if verify_first and folder == "train":
-            if not verify_output_sample(FEATURES_ROOT):
+        if verify_first_batch and folder == "train":
+            if not verify_output_sample(FEATURES_DIR):
                 logger.error("Verification failed! Stopping execution.")
                 return
-            verify_first = False  # Only verify once
+            verify_first_batch = False  # Only verify once
 
         # Print summary
         print_summary(results, elapsed)
@@ -307,7 +463,24 @@ def main(max_workers: int = 4, verify_first: bool = True):
             if len(errors) > 5:
                 logger.warning(f"  ... and {len(errors) - 5} more")
 
-    logger.info("\n All processing complete!")
+    logger.info("\n" + "="*60)
+    logger.info("JSON feature extraction complete!")
+    logger.info("="*60)
+    
+    # Build FAISS index from all processed JSON files
+    logger.info("\nBuilding FAISS index...")
+    if build_faiss_index(FEATURES_DIR, FAISS_OUTPUT_DIR, METADATA_OUTPUT_DIR):
+        logger.info("\n✅ All processing complete! FAISS index is ready for fast retrieval.")
+    else:
+        logger.warning("\n⚠️  Processing complete, but FAISS index build failed or skipped.")
+    
+    logger.info("\n" + "="*60)
+    logger.info("OUTPUT SUMMARY")
+    logger.info("="*60)
+    logger.info(f"JSON features:     {FEATURES_DIR}")
+    logger.info(f"FAISS index:       {FAISS_OUTPUT_DIR}")
+    logger.info(f"Metadata mapping:  {METADATA_OUTPUT_DIR}")
+    logger.info("="*60 + "\n")
 
 
 def test_single_image():
@@ -316,7 +489,6 @@ def test_single_image():
     print("TESTING SINGLE IMAGE EXTRACTION")
     print("="*60 + "\n")
 
-    model = get_model()
 
     # Find first available test image
     test_image = None
@@ -379,7 +551,8 @@ def test_single_image():
             
             # Save test output
             test_output = OUT_ROOT / "test_output.json"
-            FEATURES_ROOT.mkdir(parents=True, exist_ok=True)
+            OUT_ROOT.mkdir(parents=True, exist_ok=True)
+            FEATURES_DIR.mkdir(parents=True, exist_ok=True)
             
             result = {
                 "image_path": str(test_image.relative_to(DATA_ROOT)),
@@ -408,8 +581,6 @@ def test_batch_sample(n_images: int = 5):
     print(f"TESTING BATCH EXTRACTION ({n_images} images)")
     print("="*60 + "\n")
     
-    model = get_model()
-    
     # Get sample images
     images = []
     for folder in ["train", "val"]:
@@ -419,52 +590,92 @@ def test_batch_sample(n_images: int = 5):
             images.extend(folder_images[:n_images])
             if len(images) >= n_images:
                 break
-    
+
     images = images[:n_images]
-    
+
     if not images:
         logger.error("No test images found!")
         return
-    
+
     logger.info(f"Testing {len(images)} images...")
-    
+
     results = []
     total_objects = 0
     start = time.time()
-    
+
     for img in tqdm(images, desc="Testing", unit="img"):
         try:
-            result = process_single_image(img, DATA_ROOT, FEATURES_ROOT)
+            result = process_single_image(img, DATA_ROOT, FEATURES_DIR)
             results.append(result)
             if result["status"] == "success":
                 total_objects += result.get("num_objects", 0)
         except Exception as e:
             logger.error(f"Failed on {img.name}: {e}")
-    
+
     elapsed = time.time() - start
-    
+
     # Summary
     success = sum(1 for r in results if r["status"] == "success")
     errors = sum(1 for r in results if r["status"] == "error")
-    
+
     print(f"\n--- Batch Test Results ---")
     print(f"    Success: {success}/{len(images)}")
     print(f"    Errors:  {errors}/{len(images)}")
     print(f"    Total objects: {total_objects}")
     print(f"    Avg objects/image: {total_objects/success if success > 0 else 0:.1f}")
     print(f"    Time: {elapsed:.2f}s ({elapsed/len(images):.2f}s per image)")
-    
+
+    test_batch_output = OUT_ROOT / "test_batch_output.json"
+    assert FEATURES_DIR.exists(), f"Error: FEATURES_DIR does not exist. create it first."
+    batch_result = {
+        "tested_images": [str(img.relative_to(DATA_ROOT)) for img in images],
+        "results": results,
+        "processed_at": datetime.now().isoformat(),
+        "total_images": len(images),
+        "success": success,
+        "errors": errors,
+        "total_objects": total_objects,
+        "avg_objects_per_image": total_objects / success if success > 0 else 0.0,
+        "elapsed_time_sec": elapsed
+    }
+    with open(test_batch_output, "w", encoding="utf-8") as f:
+        json.dump(_to_serializable(batch_result), f, indent=2)
+    print(f"\n  Batch test output saved: {test_batch_output}")
+
     # Verify output
-    if verify_output_sample(FEATURES_ROOT):
+    if verify_output_sample(FEATURES_DIR):
         print("\n + All tests passed!")
     else:
         print("\n - Verification failed!")
-    
+
     print("\n" + "="*60 + "\n")
 
 
 if __name__ == "__main__":
     
+    print(f"Current working directory : {os.getcwd()}")
+
+    assert FourierDescriptorExtractor is not None, f"Error importing FourierDescriptorExtractor"
+    assert OrientationHistogramExtractor is not None, f"Error importing OrientationHistogramExtractor"
+    assert TamuraExtractor is not None, f"Error importing TamuraExtractor"
+    assert GaborExtractor is not None, f"Error importing GaborExtractor"
+    assert HSVHistogramExtractor is not None, f"Error importing HSVHistogramExtractor"
+    assert DominantColorsExtractor is not None, f"Error importing DominantColorsExtractor"
+    assert FeatureExtractionService is not None, f"Error importing FeatureExtractionService"
+
+    assert DATA_ROOT is not None, f"Error importing DATA_ROOT"
+    assert OUT_ROOT is not None, f"Error importing OUT_ROOT"
+    assert FEATURES_DIR is not None, f"Error importing FEATURES_ROOT"
+    assert LABELS_ROOT is not None, f"Error importing LABELS_ROOT"
+    assert MODEL_PATH is not None, f"Error importing MODEL_PATH"
+    assert EXTS is not None, f"Error importing EXTS"
+    assert EXTRACTORS is not None, f"Error importing EXTRACTORS"
+    assert FEATURE_SERVICE is not None, f"Error importing FEATURE_SERVICE"
+
+    # Warm up model
+    MODEL = get_model()
+    logger.info("Model ready!")
+
     # 1. Test single image first (recommended)
     # test_single_image()
     
@@ -472,4 +683,4 @@ if __name__ == "__main__":
     # test_batch_sample(n_images=5)
     
     # 3. Process full dataset
-    main(max_workers=6, verify_first=True)
+    main(max_workers=4, verify_first_batch=True)
