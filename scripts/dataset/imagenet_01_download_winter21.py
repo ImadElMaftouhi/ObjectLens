@@ -1,8 +1,9 @@
-"""
-ImageNet Dataset Download Script
-Downloads synsets from Winter 2021 release and bounding box annotations.
-"""
 #!/usr/bin/env python3
+
+# filename: imagenet_01_download_images.py
+# purpose:  Download ImageNet Winter 2021 synsets + bbox annotations
+# output:   data/raw_imagenet/
+
 
 import os
 import requests
@@ -11,7 +12,6 @@ import shutil
 from pathlib import Path
 from tqdm import tqdm
 
-# 15 synsets for the project
 WNIDS = [
     'n02084071',  # dog
     'n02124075',  # cat
@@ -30,16 +30,12 @@ WNIDS = [
     'n00007846',  # person   <-- replaced cup
 ]
 
-
-
 # Download annotations from: https://www.image-net.org/data/bboxes_annotations.tar.gz
 # Download images from Winter 2021 release: https://image-net.org/data/winter21_whole/<WNID>.tar
 
 # Base directories
-DATASET_DIR = "raw_data"
-IMAGES_DIR = DATASET_DIR + "/images" # consider isolating the images in raw_data/images/ instead of raw_data/
+DATASET_DIR = "data/raw_imagenet"
 BBOX_DIR = os.path.join(DATASET_DIR, "bounding_boxes")
-
 WINTER21_BASE_URL = "https://image-net.org/data/winter21_whole"
 BBOX_URL = "https://www.image-net.org/data/bboxes_annotations.tar.gz"
 

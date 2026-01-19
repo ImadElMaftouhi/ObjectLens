@@ -9,7 +9,6 @@ from pathlib import Path
 from collections import defaultdict
 import json
 
-# 15 synsets for the project (must match download_synsets.py)
 WNIDS = [
     'n02084071',  # dog
     'n02124075',  # cat
@@ -29,7 +28,7 @@ WNIDS = [
 ]
 
 # Base directories (must match download_synsets.py)
-DATASET_DIR = "raw_data"
+DATASET_DIR = "data/raw_imagenet"
 BBOX_DIR = os.path.join(DATASET_DIR, "bounding_boxes")
 
 # Supported image extensions
@@ -346,7 +345,7 @@ def main():
     """Main function."""
     if not os.path.exists(DATASET_DIR):
         print(f"ERROR: Dataset directory not found: {DATASET_DIR}")
-        print("Please run download_synsets.py first.")
+        print("Check you running from the project root directory or run download_synsets.py first.")
         return
     
     results = verify_all()

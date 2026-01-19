@@ -11,12 +11,11 @@ from collections import defaultdict
 # PATHS
 # ==========================
 
-# Where your download script stored the data
-DATASET_DIR = "raw_data"
+DATASET_DIR = "data/raw_imagenet"
 BBOX_DIR = os.path.join(DATASET_DIR, "bounding_boxes")
 
 # Final YOLO dataset root
-YOLO_ROOT = "imagenet_yolo15"
+YOLO_ROOT = "data/imagenet_4_yolo"
 IMAGES_DIR = os.path.join(YOLO_ROOT, "images")
 LABELS_DIR = os.path.join(YOLO_ROOT, "labels")
 
