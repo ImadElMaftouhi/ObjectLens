@@ -70,7 +70,8 @@ echo ""
 
 python scripts/indexing/load_to_mongodb.py \
     --mapping-path "$OBJECT_MAPPING" \
-    --faiss-metadata-path "$FAISS_METADATA"
+    --faiss-metadata-path "$FAISS_METADATA" \
+    --mongo-uri "mongodb://localhost:27017/objectlens"
 
 if [ $? -eq 0 ]; then
     echo ""
