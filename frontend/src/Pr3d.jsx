@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import ModelViewer from "./components/ModelViewer"
-import { API_BASE } from "./api"
+import { API_BASE, searchTopK_3d } from "./api"
 
 export default function Pr3d() {
   const navigate = useNavigate()
@@ -10,6 +10,12 @@ export default function Pr3d() {
   const [results, setResults] = useState([])
   const [selectedModel, setSelectedModel] = useState(null)
   const [topK, setTopK] = useState(5)
+  const [error, setError] = useState(null)
+
+  // Search parameters
+  const [method, setMethod] = useState("depth")
+  const [metric, setMetric] = useState("l2")
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const styles = {
     page: {
@@ -41,6 +47,15 @@ export default function Pr3d() {
       padding: "8px 10px",
       width: 84
     },
+    select: {
+      borderRadius: 10,
+      border: "1px solid rgba(255,255,255,0.04)",
+      background: "rgba(8,12,18,0.9)",
+      color: "#e6eefb",
+      padding: "8px 10px",
+      width: "100%",
+      cursor: "pointer"
+    },
     title: { fontSize: 18, fontWeight: 900, margin: 0 },
     backBtn: {
       color: "#cfe0ff",
@@ -50,6 +65,15 @@ export default function Pr3d() {
       padding: "6px 10px",
       borderRadius: 10,
       cursor: "pointer"
+    },
+    errorBox: {
+      marginTop: 12,
+      padding: 12,
+      borderRadius: 8,
+      background: "rgba(255,80,80,0.12)",
+      border: "1px solid rgba(255,80,80,0.3)",
+      color: "#ff8888",
+      fontSize: 13
     }
   }
 
@@ -59,6 +83,7 @@ export default function Pr3d() {
       setFile(uploadedFile)
       setResults([])
       setSelectedModel(null)
+      setError(null)
     }
   }
 
@@ -69,43 +94,40 @@ export default function Pr3d() {
     }
 
     setLoading(true)
+    setError(null)
+
     try {
-      const k = Math.max(1, Math.min(200, Number(topK) || 5))
-      const url = `${API_BASE}/api/samples/class?limit=${k}`
-      const res = await fetch(url)
-      if (!res.ok) throw new Error(`samples API returned ${res.status}`)
-      const data = await res.json()
-      const files = data.files || []
-      let mapped = files.map((f, i) => ({
+      const data = await searchTopK_3d({
+        file,
+        topK: Math.max(1, Math.min(100, Number(topK) || 5)),
+        method,
+        metric,
+        aggregation: "mean",
+        imageSize: 256,
+        l2Normalize: false
+      })
+
+      // Map API results to display format
+      const mapped = (data.results || []).map((r, i) => ({
         id: i + 1,
-        name: `Model ${i + 1}`,
-        similarity: Math.max(0.5, Math.random()),
-        thumbnailUrl: null,
-        sampleUrl: f.startsWith("/raw/") ? API_BASE + f : f
+        rank: r.rank,
+        filename: r.filename,
+        className: r.class,
+        distance: r.distance,
+        similarity: r.similarity_score,
+        // Build URL to serve the 3D model
+        modelUrl: `${API_BASE}/raw/3D%20Models/${encodeURIComponent(r.class)}/${encodeURIComponent(r.filename)}`
       }))
-      // If backend returned fewer than k files, duplicate entries to fill slots for testing
-      if (mapped.length < k) {
-        if (mapped.length === 0) {
-          const fallback = API_BASE + "/raw/3D%20Models/Amphora/Amphora_1.obj"
-          mapped = Array.from({ length: k }).map((_, i) => ({
-            id: i + 1,
-            name: `Model ${i + 1}`,
-            similarity: Math.max(0.5, Math.random()),
-            thumbnailUrl: null,
-            sampleUrl: fallback
-          }))
-        } else {
-          const orig = mapped.slice()
-          while (mapped.length < k) {
-            const next = orig[mapped.length % orig.length]
-            mapped.push({ ...next, id: mapped.length + 1 })
-          }
-        }
-      }
+
       setResults(mapped)
+
+      // Auto-select first result if available
+      if (mapped.length > 0) {
+        setSelectedModel(mapped[0].id)
+      }
     } catch (err) {
-      console.error("search samples failed", err)
-      // fall back to empty results
+      console.error("3D search failed", err)
+      setError(err.message || "Search failed. Please try again.")
       setResults([])
     } finally {
       setLoading(false)
@@ -116,6 +138,7 @@ export default function Pr3d() {
     setFile(null)
     setResults([])
     setSelectedModel(null)
+    setError(null)
   }
 
   return (
@@ -136,7 +159,7 @@ export default function Pr3d() {
         <h1
           style={{ fontSize: 24, fontWeight: 900, color: "#eaeef7", margin: 0 }}
         >
-          ObjectLens
+          ObjectLens - 3D Model Retrieval
         </h1>
       </div>
 
@@ -150,7 +173,7 @@ export default function Pr3d() {
               {file && (
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 8 }}>
-                    Uploaded Model Preview
+                    Query Model Preview
                   </div>
                   <div
                     style={{
@@ -208,12 +231,13 @@ export default function Pr3d() {
               </div>
             )}
 
+            {/* Search Parameters */}
             <div
               style={{
                 display: "flex",
                 gap: 8,
                 marginTop: 12,
-                alignItems: "center"
+                alignItems: "flex-end"
               }}
             >
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -221,13 +245,74 @@ export default function Pr3d() {
                 <input
                   type="number"
                   min={1}
-                  max={200}
+                  max={100}
                   value={topK}
                   onChange={(e) => setTopK(Number(e.target.value))}
                   style={styles.input}
                 />
               </div>
+              <button
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "transparent",
+                  color: "#a0b0c5",
+                  fontSize: 12,
+                  cursor: "pointer"
+                }}
+              >
+                {showAdvanced ? "Hide" : "Options"} ⚙️
+              </button>
             </div>
+
+            {/* Advanced Options */}
+            {showAdvanced && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  borderRadius: 8,
+                  background: "rgba(255,255,255,0.02)"
+                }}
+              >
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 12, opacity: 0.85, display: "block", marginBottom: 4 }}>
+                    Descriptor Method
+                  </label>
+                  <select
+                    value={method}
+                    onChange={(e) => setMethod(e.target.value)}
+                    style={styles.select}
+                  >
+                    <option value="depth">Depth Buffer (recommended)</option>
+                    <option value="lfd">Light Field Descriptor (LFD)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, opacity: 0.85, display: "block", marginBottom: 4 }}>
+                    Distance Metric
+                  </label>
+                  <select
+                    value={metric}
+                    onChange={(e) => setMetric(e.target.value)}
+                    style={styles.select}
+                  >
+                    <option value="l2">L2 (Euclidean)</option>
+                    <option value="l1">L1 (Manhattan)</option>
+                    <option value="cosine">Cosine</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <div style={styles.errorBox}>
+                <strong>Error:</strong> {error}
+              </div>
+            )}
 
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
               <button
@@ -237,14 +322,15 @@ export default function Pr3d() {
                   flex: 1,
                   padding: "10px 12px",
                   borderRadius: 10,
-                  background: "#4f7cff",
+                  background: loading ? "#3a5a9f" : "#4f7cff",
                   color: "#061021",
                   fontWeight: 800,
                   border: "none",
-                  cursor: "pointer"
+                  cursor: loading ? "wait" : "pointer",
+                  opacity: !file ? 0.5 : 1
                 }}
               >
-                {loading ? "Searching..." : "Search Models"}
+                {loading ? "Searching..." : "🔍 Search Models"}
               </button>
               <button
                 onClick={handleReset}
@@ -254,7 +340,8 @@ export default function Pr3d() {
                   borderRadius: 10,
                   border: "1px solid rgba(255,255,255,0.04)",
                   background: "transparent",
-                  color: "#e6eefb"
+                  color: "#e6eefb",
+                  cursor: "pointer"
                 }}
               >
                 Reset
@@ -268,7 +355,7 @@ export default function Pr3d() {
           <div style={styles.card}>
             <h3 style={styles.title}>
               {results.length > 0
-                ? `Results (${results.length})`
+                ? `Found ${results.length} Similar Models`
                 : "Similar Models"}
             </h3>
 
@@ -283,9 +370,12 @@ export default function Pr3d() {
                   }}
                 >
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 28, marginBottom: 8 }}>🔄</div>
-                    <div style={{ opacity: 0.85 }}>
-                      Searching for similar models...
+                    <div style={{ fontSize: 36, marginBottom: 8 }}>🔄</div>
+                    <div style={{ opacity: 0.85, fontWeight: 600 }}>
+                      Computing 3D descriptors and searching...
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.6, marginTop: 6 }}>
+                      This may take a few seconds
                     </div>
                   </div>
                 </div>
@@ -312,7 +402,7 @@ export default function Pr3d() {
                 </div>
               )}
 
-              {!loading && results.length === 0 && file && (
+              {!loading && results.length === 0 && file && !error && (
                 <div
                   style={{
                     display: "flex",
@@ -338,7 +428,7 @@ export default function Pr3d() {
                     gap: 12
                   }}
                 >
-                  {results.map((result, idx) => (
+                  {results.map((result) => (
                     <div
                       key={result.id}
                       role="button"
@@ -350,14 +440,17 @@ export default function Pr3d() {
                         borderRadius: 8,
                         background:
                           selectedModel === result.id
-                            ? "rgba(124,58,237,0.12)"
+                            ? "rgba(79,124,255,0.15)"
                             : "transparent",
-                        border: "1px solid rgba(255,255,255,0.03)",
+                        border: selectedModel === result.id
+                          ? "1px solid rgba(79,124,255,0.4)"
+                          : "1px solid rgba(255,255,255,0.03)",
                         cursor: "pointer",
                         minHeight: 320,
                         display: "flex",
                         flexDirection: "column",
-                        justifyContent: "space-between"
+                        justifyContent: "space-between",
+                        transition: "all 0.2s ease"
                       }}
                     >
                       <div
@@ -367,21 +460,50 @@ export default function Pr3d() {
                           overflow: "hidden",
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center"
+                          justifyContent: "center",
+                          background: "rgba(0,0,0,0.2)"
                         }}
                       >
                         <div style={{ width: "100%", height: "100%" }}>
-                          <ModelViewer url={result.sampleUrl} live={true} />
+                          <ModelViewer url={result.modelUrl} live={true} />
                         </div>
                       </div>
-                      <div style={{ marginTop: 10, fontWeight: 800 }}>
-                        {result.name}
+
+                      <div style={{ marginTop: 10 }}>
+                        <div style={{ fontWeight: 800, fontSize: 14 }}>
+                          #{result.rank} - {result.className}
+                        </div>
+                        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4, wordBreak: "break-all" }}>
+                          {result.filename}
+                        </div>
                       </div>
-                      <div style={{ marginTop: 6, opacity: 0.85 }}>
-                        Similarity: {(result.similarity * 100).toFixed(1)}%
-                      </div>
+
                       <div style={{ marginTop: 8 }}>
-                        <small style={{ opacity: 0.8 }}>Test item</small>
+                        <div style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center"
+                        }}>
+                          <span style={{ fontSize: 12, opacity: 0.7 }}>Similarity:</span>
+                          <span style={{
+                            fontWeight: 700,
+                            color: result.similarity > 0.7 ? "#7dd87d" :
+                              result.similarity > 0.4 ? "#f0d060" : "#ff8888"
+                          }}>
+                            {(result.similarity * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        <div style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginTop: 4
+                        }}>
+                          <span style={{ fontSize: 12, opacity: 0.7 }}>Distance:</span>
+                          <span style={{ fontSize: 12, opacity: 0.9 }}>
+                            {result.distance.toFixed(4)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   ))}

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { detectObjects, searchTopK } from "./api"
+import { detectObjects, searchTopK_2D } from "./api"
 import { cropToBlob } from "./utils/crop"
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000"
@@ -86,7 +86,7 @@ export default function Pr2d() {
   }, [crops, selectedIndex])
 
   function revokeCropUrls(list) {
-    ;(list || []).forEach((c) => {
+    ; (list || []).forEach((c) => {
       if (c?.previewUrl) URL.revokeObjectURL(c.previewUrl)
     })
   }
@@ -169,7 +169,7 @@ export default function Pr2d() {
       const det = selected.det
       const k = Math.max(1, Math.min(200, Number(topK) || 20))
 
-      const topk = await searchTopK({
+      const topk = await searchTopK_2D({
         blob: selected.blob,
         filename: `query_${detectResult.image_id || "img"}_${det.id}.png`,
         topK: k,
@@ -194,11 +194,11 @@ export default function Pr2d() {
 
   const selectedInfo = selected?.det
     ? {
-        class_name: selected.det.class_name,
-        id: selected.det.id,
-        bbox: selected.det.bbox,
-        confidence: selected.det.confidence
-      }
+      class_name: selected.det.class_name,
+      id: selected.det.id,
+      bbox: selected.det.bbox,
+      confidence: selected.det.confidence
+    }
     : null
 
   const qd = topkResult?.query_descriptors || null
