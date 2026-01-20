@@ -19,23 +19,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve dataset images directly (Option A)
+# Serve 2D dataset images (ImageNet)
 # Example URL: /dataset/images/val/xxx.jpg
-dataset_dir = Path(settings.DATASET_ROOT).resolve()
-print(f"Mounting dataset directory: {dataset_dir}")
-app.mount(
-    "/dataset",
-    StaticFiles(directory=str(dataset_dir), check_dir=False),
-    name="dataset",
-)
+dataset_dir = settings.get_dataset_root()
+print(f"[INFO] Mounting 2D dataset directory: {dataset_dir}")
+if dataset_dir.exists():
+    app.mount(
+        "/dataset",
+        StaticFiles(directory=str(dataset_dir), check_dir=False),
+        name="dataset",
+    )
+else:
+    print(f"[WARNING] 2D dataset directory does not exist: {dataset_dir}")
 
-# Serve raw 3D files mounted into the backend at settings.RAW_DATA_ROOT
-raw_dir = Path(settings.RAW_DATA_ROOT).resolve()
-app.mount(
-    "/raw",
-    StaticFiles(directory=str(raw_dir), check_dir=False),
-    name="raw",
-)
+# Serve 3D model files (Pottery dataset)
+# Example URL: /raw/3DModels/Amphora/Amphora_1.obj
+raw_dir = settings.get_raw_data_root()
+print(f"[INFO] Mounting 3D dataset directory: {raw_dir}")
+if raw_dir.exists():
+    app.mount(
+        "/raw",
+        StaticFiles(directory=str(raw_dir), check_dir=False),
+        name="raw",
+    )
+else:
+    print(f"[WARNING] 3D dataset directory does not exist: {raw_dir}")
 
 app.include_router(detect_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
@@ -49,6 +57,11 @@ def health():
 
 @app.get("/health/dataset")
 def health_dataset():
-    root = Path(settings.DATASET_ROOT)
-    return {"dataset_root": str(root), "exists": root.exists()}
-
+    dataset_root = settings.get_dataset_root()
+    raw_root = settings.get_raw_data_root()
+    return {
+        "2d_dataset_root": str(dataset_root),
+        "2d_dataset_exists": dataset_root.exists(),
+        "3d_dataset_root": str(raw_root),
+        "3d_dataset_exists": raw_root.exists(),
+    }
