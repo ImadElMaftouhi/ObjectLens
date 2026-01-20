@@ -16,11 +16,12 @@ Behavior (Option A):
   unless --recompute is provided.
 
 Run:
-    python scripts/04_index_models.py
+    python scripts/04_index_models.py --image-size 256 --l2-normalize
+    python scripts/dataset/pottery_05_index_models.py --image-size 256 --l2-normalize
 
 Useful dev runs:
-    python scripts/04_index_models.py --image-size 256 --depth-rotation-set grid24 --l2-normalize
-    python scripts/04_index_models.py --recompute --image-size 256 --depth-rotation-set grid24 --l2-normalize --limit 5
+    python scripts/dataset/pottery_05_index_models.py --image-size 256 --depth-rotation-set grid24 --l2-normalize
+    python scripts/dataset/pottery_05_index_models.py --recompute --image-size 256 --depth-rotation-set grid24 --l2-normalize --limit 5
 """
 
 from __future__ import annotations
@@ -42,13 +43,13 @@ from pymongo.errors import ServerSelectionTimeoutError
 # -------------------------
 # Core imports (your code)
 # -------------------------
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-from core import (
-    MeshLoader,
+from backend.services import (
     Mesh,
+    MeshLoader,
     MeshNormalizer,
     Renderer,
     LFDDescriptor,
@@ -66,15 +67,20 @@ DEFAULT_IMAGE_SIZE = 256  # updated default as requested
 
 # Your dataset root:
 #   data/raw/3D Models/<ClassName>/<filename>.obj
-OBJ_ROOT_REL = Path("data") / "raw" / "3D Models"
-INDEX_CSV_REL = Path("data") / "splits" / "index.csv"
+OBJ_ROOT_REL = Path("data") / "3D_data" / "raw" / "3D Models"
+INDEX_CSV_REL = Path("data") / "3D_data" / "splits" / "index.csv"
 
 
 # -------------------------
 # Helpers
 # -------------------------
 def project_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    path = Path(__file__).resolve()
+    for _ in range(5):
+        if (path / ".git").is_dir():
+            return path
+        path = path.parent
+    return Path(__file__).resolve().parent.parent.parent
 
 
 def utc_now_iso() -> str:
@@ -412,6 +418,20 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
+        assert "ObjectLens" in str(PROJECT_ROOT), "PROJECT_ROOT is not correct"
+        assert  Mesh is not None, "Mesh instance couldn't not be instantiated"
+        assert MeshLoader is not None, "Error instantiating instance of MeshLoader"
+        assert MeshNormalizer is not None, "Error instantiating instance of MeshNormalizer"
+        assert Renderer is not None, "Error instantiating instance of Renderer"
+        assert LFDDescriptor is not None, "Error instantiating instance of LFDDescriptor"
+        assert DepthBufferDescriptor is not None, "Error instantiating instance of DepthBufferDescriptor"
+        assert OBJ_ROOT_REL.exists(), f"OBJ_ROOT_REL path not found: {OBJ_ROOT_REL}"
+        assert OBJ_ROOT_REL.is_dir(), f"OBJ_ROOT_REL must be a directory: {OBJ_ROOT_REL}"
+        assert INDEX_CSV_REL.exists(), f"INDEX_CSV_REL path not found: {INDEX_CSV_REL}"
+        assert INDEX_CSV_REL.is_file(), f"INDEX_CSV_REL must be a file: {INDEX_CSV_REL}"
+
+        # print(f"All imports are successful!") ; exit(1)
+
         main()
     except Exception as e:
         print(f"\n[ERROR] {e}", file=sys.stderr)

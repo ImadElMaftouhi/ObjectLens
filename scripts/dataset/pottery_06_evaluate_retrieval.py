@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-05_run_retrieval_eval.py
+pottery_06_evaluate_retrieval.py
 
 Evaluate 3D retrieval on the QUERY split against the INDEX split stored in MongoDB.
 
@@ -51,13 +51,13 @@ Critical fix included:
         l2_normalized = doc["depth"].get("l2_normalized", False)
 
 Run:
-  python scripts/05_run_retrieval_eval.py --both --image-size 256 --depth-rotation-set grid24 --l2-normalize
-  python scripts/05_run_retrieval_eval.py --method depth --image-size 256 --depth-rotation-set grid24 --l2-normalize
+  python scripts/pottery_06_evaluate_retrieval.py --both --image-size 256 --depth-rotation-set grid24 --l2-normalize
+  python scripts/pottery_06_evaluate_retrieval.py --method depth --image-size 256 --depth-rotation-set grid24 --l2-normalize
 """
-
 from __future__ import annotations
-from pathlib import Path
+
 import sys
+from pathlib import Path
 
 # -------------------------
 # Project imports (must come first to set up sys.path)
@@ -66,30 +66,28 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-import numpy as np, argparse, csv, json, math, time
+# Standard library
+import argparse
+import csv
+import json
+import math
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
+
+# Third-party
+import numpy as np
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.errors import ServerSelectionTimeoutError
-from core.mesh import MeshLoader, Mesh, MeshNormalizer, Renderer
-from core.descriptors import (
-    LFDDescriptor,
-    LFDModelDescriptor,
-    LFDMetadata,
-    DepthBufferDescriptor,
-    DepthModelDescriptor,
-    DepthMetadata
-    )
-from core.similarity import SimilarityEngine
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-# Seaborn is optional (nicer visuals). If missing, we fall back to matplotlib defaults.
+# Optional: Seaborn for nicer visuals
 try:
     import seaborn as sns  # type: ignore
     _HAS_SEABORN = True
@@ -97,12 +95,17 @@ except Exception:
     sns = None  # type: ignore
     _HAS_SEABORN = False
 
-# -------------------------
 # Project imports
-# -------------------------
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.append(str(PROJECT_ROOT))
+from backend.services.mesh import MeshLoader, Mesh, MeshNormalizer, Renderer
+from backend.services.descriptors import (
+    LFDDescriptor,
+    LFDModelDescriptor,
+    LFDMetadata,
+    DepthBufferDescriptor,
+    DepthModelDescriptor,
+    DepthMetadata
+)
+from backend.services.similarity import SimilarityEngine
 
 # -------------------------
 # Defaults / Paths
@@ -115,7 +118,7 @@ OBJ_ROOT_REL = Path("data") / "raw" / "3D Models"
 INDEX_CSV_REL = Path("data") / "splits" / "index.csv"
 QUERY_CSV_REL = Path("data") / "splits" / "query.csv"
 
-DEFAULT_IMAGE_SIZE = 256  # UPDATED
+DEFAULT_IMAGE_SIZE = 256
 K_PRIMARY = 20
 K_LIST = [1, 5, 10, 20]
 
