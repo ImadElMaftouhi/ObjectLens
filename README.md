@@ -1,134 +1,331 @@
-# Content-Based Image Retrieval System
+# ObjectLens
 
-A web application for content-based image retrieval using YOLOv8n object detection and EfficientNet feature extraction.
+**ObjectLens** is a multimedia mining and indexing system that enables efficient object-based image retrieval using deep learning and similarity search. The system supports both 2D image search (using ImageNet/YOLO) and 3D model retrieval (using pottery dataset), combining computer vision, feature extraction, and vector similarity search.
 
-## Project Structure
+## 🎯 Overview
+
+ObjectLens allows users to:
+- **Upload an image** and detect objects within it using YOLO
+- **Search for similar objects** across large datasets using FAISS-powered vector similarity
+- **Filter results by class** for more precise retrieval
+- **Visualize 2D and 3D results** through an interactive web interface
+- **Index and retrieve 3D models** based on geometric and visual features
+
+## 🏗️ Architecture
 
 ```
-mini-projet-1/
-├── frontend/          # React frontend application
-├── backend/           # Main backend server (Node.js/Express, Laravel, etc.)
-├── python-api/        # Python ML API (FastAPI/Flask)
-├── scripts/           # Preprocessing and utility scripts
-├── dataset/           # ImageNet dataset (15 synsets)
-├── imagenet_yolo15/   # YOLO formatted dataset
-└── docs/              # Project documentation
+ObjectLens/
+├── backend/          # FastAPI server with ML pipelines
+├── frontend/         # React + Vite web interface
+├── scripts/          # Dataset preparation and indexing scripts
+├── data/             # Datasets (ImageNet, Pottery)
+├── db/               # MongoDB configuration
+└── docker-compose.yml
 ```
 
-## Quick Start
+### Technology Stack
 
-### 1. Frontend Setup (React)
+**Backend:**
+- FastAPI for REST API
+- YOLOv8 (Ultralytics) for object detection
+- FAISS for fast similarity search
+- MongoDB for metadata storage
+- OpenCV, scikit-image, and custom descriptors for feature extraction
 
+**Frontend:**
+- React 19 with Vite
+- Three.js for 3D model visualization
+- Tailwind CSS for styling
+- React Router for navigation
+
+**Databases:**
+- MongoDB for storing object metadata and features
+- FAISS indices for vector similarity search
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- **Python 3.8+** with pip
+- **Node.js 16+** with npm
+- **Docker & Docker Compose** (optional, for containerized deployment)
+- **Git** for cloning the repository
+
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd ObjectLens
+   ```
+
+2. **Set up environment variables:**
+   ```bash
+   # Copy and configure .env file
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+3. **Run the setup pipeline:**
+   ```bash
+   # This downloads datasets, builds catalogs, and sets up indices
+   bash run_pipeline.sh
+   ```
+
+   The pipeline performs:
+   - Downloads ImageNet Winter21 dataset
+   - Verifies and builds YOLO dataset
+   - Precomputes image features
+   - Downloads pottery 3D models
+   - Builds and splits pottery catalog
+   - Sets up MongoDB and FAISS indices
+
+### Running the Application
+
+Make sure to create a local python env : `python -m venv .venv`
+
+#### Option 1: Docker Compose (Recommended)
+
+```bash
+# Start MongoDB
+docker-compose up -d mongo
+
+# Start backend (from project root)
+cd backend
+pip install -r requirements.txt
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+# Start frontend (in a new terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+Access the application at `http://localhost:5173`
+
+#### Option 2: Manual Setup
+
+**Backend:**
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Frontend:**
 ```bash
 cd frontend
 npm install
-# Create .env file with:
-# REACT_APP_API_URL=http://localhost:3001/api
-npm start
+npm run dev
 ```
 
-### 2. Backend Setup
-
-Choose your backend technology and follow the setup instructions in `backend/README.md`.
-
-**Node.js/Express:**
+**MongoDB:**
 ```bash
-cd backend
-npm install
-# Create .env file
-npm start
+# Using Docker
+docker run -d -p 27017:27017 --name objectlens-mongo mongo:latest
+
+# Or install MongoDB locally
 ```
 
-### 3. Python API Setup
+## 📊 Datasets
+
+### 2D Dataset: ImageNet Winter21
+
+- **Purpose:** Object detection and 2D image retrieval
+- **Classes:** Multiple object categories
+- **Format:** JPEG images with YOLO annotations
+- **Location:** `data/imagenet_4_yolo/`
+
+### 3D Dataset: Pottery Models
+
+- **Purpose:** 3D model retrieval and visualization
+- **Classes:** Amphora, Hydria, Krater, Kylix, and more
+- **Format:** OBJ files with textures
+- **Location:** `data/raw/3DModels/`
+
+## 🔍 How It Works
+
+### 2D Image Search Pipeline
+
+1. **Upload & Detection:** User uploads an image → YOLO detects objects → user selects an object
+2. **Feature Extraction:** System crops the object → extracts deep features (weighted, L2-normalized vector)
+3. **Similarity Search:** FAISS searches the index → returns top-k nearest neighbors
+4. **Result Retrieval:** System looks up metadata in MongoDB → returns images with highlighted matching objects
+
+### 3D Model Retrieval Pipeline
+
+1. **Feature Extraction:** Extract geometric descriptors (shape, curvature, distribution)
+2. **Indexing:** Build FAISS index from 3D feature vectors
+3. **Query:** User searches by uploading a 3D model or selecting from catalog
+4. **Visualization:** Results displayed with Three.js 3D viewer
+
+## 🛠️ API Endpoints
+
+### Health Check
+```bash
+GET /health
+GET /health/dataset
+```
+
+### Object Detection
+```bash
+POST /api/detect
+# Upload image, returns detected objects with bounding boxes
+```
+
+### Search
+```bash
+POST /api/search/topk?top_k=10&metric=cosine&same_class_only=false
+# Parameters:
+# - top_k: Number of results to return
+# - metric: 'cosine' or 'euclidean'
+# - same_class_only: Filter by object class
+```
+
+### Sample Data
+```bash
+GET /api/samples/random?count=10
+# Returns random sample images from dataset
+```
+
+See [`backend/test_commands.md`](backend/test_commands.md) for detailed API testing examples.
+
+## 📁 Project Structure
+
+### Backend (`/backend`)
+
+```
+backend/
+├── main.py              # FastAPI application entry point
+├── routers/             # API route handlers
+│   ├── detect.py        # Object detection endpoints
+│   ├── search.py        # Similarity search endpoints
+│   └── samples.py       # Sample data endpoints
+├── services/            # Business logic
+│   ├── yolo_service.py  # YOLO detection service
+│   ├── feature_extraction.py  # Feature extraction
+│   ├── faiss_service.py # FAISS index management
+│   └── compute_similarity.py  # Similarity computation
+├── core/                # Configuration and utilities
+├── db/                  # Database models and connections
+└── schemas.py           # Pydantic models
+```
+
+### Frontend (`/frontend`)
+
+```
+frontend/
+├── src/
+│   ├── main.jsx         # Application entry point
+│   ├── App.jsx          # Root component with routing
+│   ├── Home.jsx         # Main search interface
+│   ├── Pr2d.jsx         # 2D preview page
+│   ├── Pr3d.jsx         # 3D preview page
+│   ├── api.js           # API client
+│   └── components/
+│       └── ModelViewer.jsx  # 3D model viewer
+└── public/              # Static assets
+```
+
+See [`frontend/README.md`](frontend/README.md) for detailed frontend documentation.
+
+### Scripts (`/scripts`)
+
+```
+scripts/
+├── dataset/             # Dataset download and preparation
+│   ├── imagenet_*.py    # ImageNet pipeline scripts
+│   └── pottery_*.py     # Pottery dataset scripts
+├── preprocessing/       # Feature precomputation
+└── indexing/            # Index building and evaluation
+```
+
+## 🧪 Testing
+
+### Backend Tests
 
 ```bash
-cd python-api
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-# Create .env file
-uvicorn app.main:app --reload
+# Test feature extraction pipeline
+python backend/test_feature_pipeline.py
+
+# Test 3D retrieval
+python backend/test_3D_retrieval.py
+
+# Test system flow
+python backend/test_system_flow.py
 ```
 
-### 4. Preprocessing (One-time setup)
+### API Testing
 
 ```bash
-# Extract features for all objects
-python scripts/preprocessing/extract_features.py
+# Using curl
+curl -X POST "http://localhost:8000/api/search/topk?top_k=10" \
+  -F "file=@path/to/image.jpg"
 
-# # Build Faiss index
-# python scripts/preprocessing/build_faiss_index.py
-
-# Generate thumbnails
-python scripts/preprocessing/generate_thumbnails.py
-
-# Populate database
-python scripts/database/populate_db.py
+# Using Python
+python backend/test_search_endpoint.py
 ```
 
-## Architecture
+## 🎨 Features
 
-```
-Frontend (React)
-    ↓ HTTP
-Backend
-    ↓ HTTP
-Python API (FastAPI/Flask)
-    ├─ YOLOv8 Detection
-    └─ Feature Extraction
-```
+### Current Features
 
-## API Endpoints
+- ✅ Object detection with YOLOv8
+- ✅ FAISS-powered similarity search
+- ✅ Class-based filtering
+- ✅ 2D image retrieval
+- ✅ 3D model retrieval
+- ✅ Interactive web interface
+- ✅ MongoDB metadata storage
+- ✅ Docker support
 
-### Python API
+### Planned Features
 
-- `POST /detect` - Upload image, get detected objects
-- `POST /search` - Search for similar objects
-- `GET /image/{id}` - Get image metadata
+- 🔄 Batch upload and processing
+- 🔄 Advanced 3D feature descriptors
+- 🔄 Real-time collaborative search
+- 🔄 Export and annotation tools
 
-### Backend API
+## 🔧 Configuration
 
-- `POST /api/upload` - Upload image
-- `POST /api/detect` - Trigger detection (proxies to Python API)
-- `POST /api/search` - Trigger search (proxies to Python API)
-- `GET /api/images/:id` - Get image
+Key configuration files:
 
-## Environment Variables
+- **`.env`** - Environment variables (database URLs, API keys, dataset paths)
+- **`backend/core/config.py`** - Backend settings
+- **`frontend/src/api.js`** - API base URL configuration
+- **`docker-compose.yml`** - Container orchestration
 
-See `.env.example` files in each directory:
-- `frontend/.env.example`
-- `backend/.env.example`
-- `python-api/.env.example`
+## 📚 Documentation
 
-## Development Workflow
+- [Frontend Documentation](frontend/README.md) - Detailed frontend guide
+- [Backend Flow](backend/readme.md) - System architecture overview
+- [Test Commands](backend/test_commands.md) - API testing examples
 
-1. **Frontend**: React app runs on `http://localhost:3000`
-2. **Backend**: Main server runs on `http://localhost:3001`
-3. **Python API**: ML API runs on `http://localhost:8000`
+## 🤝 Contributing
 
-## Technology Stack
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-- **Frontend**: React, React Router, Axios
-- **Backend**: Node.js/Express, Laravel, or Django (your choice)
-- **Python API**: FastAPI or Flask
-- **ML**: YOLOv8n, EfficientNet-B0, Faiss
-- **Database**: PostgreSQL or SQLite
+## 📝 License
 
-## Documentation
+This project is part of the M232 Multimedia Mining & Indexing course at IASD.
 
-- [Project Overview](docs/project.md)
-- [Project Map](docs/project_map.md)
-- [Folder Structure](FOLDER_STRUCTURE.md)
+## 🙏 Acknowledgments
 
-## Next Steps
+- **ImageNet** for the image dataset
+- **Ultralytics** for YOLOv8
+- **FAISS** by Meta AI for similarity search
+- **Three.js** for 3D visualization
 
-1. Choose your backend technology
-2. Set up each component following the README in each directory
-3. Run preprocessing scripts to build indexes
-4. Start all three services
-5. Test the complete workflow
+## 📧 Contact
 
-## License
+For questions or issues, please open an issue on the repository.
 
-See LICENSE file for details.
+---
 
+**Built for MST.IASD.232 - multimedia mining and indexing course**
