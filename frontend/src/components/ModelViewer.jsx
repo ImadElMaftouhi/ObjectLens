@@ -238,6 +238,18 @@ export default React.memo(function ModelViewer({
           return
         }
         try {
+          const box = new THREE.Box3().setFromObject(scene);
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const radius = maxDim * 2;
+          const time = performance.now() * 0.001;
+          const theta = time * 0.5;
+          const phi = time * 0.25;
+          cameraRef.current.position.x = radius * Math.sin(theta);
+          cameraRef.current.position.y = radius * Math.cos(theta);
+          cameraRef.current.position.z = radius * Math.cos(phi);
+          cameraRef.current.lookAt(new THREE.Vector3(0, 0, 0));
+
           controlsRef.current && controlsRef.current.update()
           r.render(scene, cameraRef.current)
         } catch (err) {
