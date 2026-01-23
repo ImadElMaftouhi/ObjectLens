@@ -14,7 +14,7 @@ export default function Pr3d() {
 
   // Search parameters
   const [method, setMethod] = useState("depth")
-  const [metric, setMetric] = useState("l2")
+  const [metric, setMetric] = useState("cosine")
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const styles = {
