@@ -8,6 +8,9 @@ from backend.routers.detect import router as detect_router
 from backend.routers.search import router as search_router
 from backend.routers.samples import router as samples_router
 
+import logging
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="ObjectLens API")
 
 origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
@@ -22,7 +25,7 @@ app.add_middleware(
 # Serve 2D dataset images (ImageNet)
 # Example URL: /dataset/images/val/xxx.jpg
 dataset_dir = settings.get_dataset_root()
-print(f"[INFO] Mounting 2D dataset directory: {dataset_dir}")
+logger.info(f"Mounting 2D dataset directory: {dataset_dir}")
 if dataset_dir.exists():
     app.mount(
         "/dataset",
@@ -30,12 +33,12 @@ if dataset_dir.exists():
         name="dataset",
     )
 else:
-    print(f"[WARNING] 2D dataset directory does not exist: {dataset_dir}")
+    logger.warning(f"2D dataset directory does not exist: {dataset_dir}")
 
 # Serve 3D model files (Pottery dataset)
 # Example URL: /raw/3DModels/Amphora/Amphora_1.obj
 raw_dir = settings.get_raw_data_root()
-print(f"[INFO] Mounting 3D dataset directory: {raw_dir}")
+logger.info(f"Mounting 3D dataset directory: {raw_dir}")
 if raw_dir.exists():
     app.mount(
         "/raw",
@@ -43,7 +46,7 @@ if raw_dir.exists():
         name="raw",
     )
 else:
-    print(f"[WARNING] 3D dataset directory does not exist: {raw_dir}")
+    logger.warning(f"3D dataset directory does not exist: {raw_dir}")
 
 app.include_router(detect_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
