@@ -1,10 +1,10 @@
-version: "3.9"
-
 services:
   mongo:
     build: ./db
     container_name: objectlens-mongo
     restart: unless-stopped
+    networks:
+      - objectlens-network
     environment:
       - MONGO_INITDB_DATABASE=objectlens
     ports:
@@ -12,90 +12,45 @@ services:
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          'mongosh --quiet --eval "db.runCommand({ ping: 1 }).ok" | grep 1'
-        ]
+      test: ["CMD-SHELL", 'mongosh --quiet --eval "db.runCommand({ ping: 1 }).ok" | grep 1']
       interval: 5s
       timeout: 5s
       retries: 30
 
-  # One-shot indexer: runs ONLY if DB is empty
-  indexer:
-    build: ./api
-    container_name: objectlens-indexer
-    restart: "no"
-    depends_on:
-      mongo:
-        condition: service_healthy
-    environment:
-      - MONGO_URI=mongodb://mongo:27017/objectlens
+  # backend:
+  #   build: ./backend
+  #   container_name: objectlens-backend
+  #   restart: unless-stopped
+  #   networks:
+  #     - objectlens-network
+  #   depends_on:
+  #     mongo:
+  #       condition: service_healthy
+  #   environment:
+  #     - CORS_ORIGINS=http://frontend:5173,http://localhost:5173
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - ./data:/data:ro
 
-      - YOLO_WEIGHTS=/app/models/yolo/best.pt
-      - YOLO_CONF=0.25
-      - YOLO_IOU=0.45
-      - YOLO_IMGSZ=640
+  # frontend:
+  #   build: ./frontend
+  #   container_name: objectlens-frontend
+  #   restart: unless-stopped
+  #   networks:
+  #     - objectlens-network
+  #   depends_on:
+  #     - backend
+  #   environment:
+  #     - VITE_API_BASE=http://backend:8000
+  #   ports:
+  #     - "5173:5173"
+  #   volumes:
+  #     - ./frontend:/usr/src/app
 
-      - DATASET_ROOT=/data/imagenet_yolo15
-      - DATASET_SPLIT=train
-    volumes:
-      - ./api:/app
-      - ./imagenet_yolo15:/data/imagenet_yolo15:ro
-      - pip_cache:/root/.cache/pip
-    command: >
-      python /app/app/cli/run_indexer.py
-
-  backend:
-    build: ./api
-    container_name: objectlens-backend
-    restart: unless-stopped
-    depends_on:
-      mongo:
-        condition: service_healthy
-      indexer:
-        condition: service_completed_successfully
-    environment:
-      - MONGO_URI=mongodb://mongo:27017/objectlens
-      - DATASET_SPLIT=train
-      # YOLO
-      - YOLO_WEIGHTS=/app/models/yolo/best.pt
-      - YOLO_CONF=0.25
-      - YOLO_IOU=0.45
-      - YOLO_IMGSZ=640
-
-      # storage / dataset
-      - IMAGE_STORE_DIR=/data/images
-      - DATASET_ROOT=/data/imagenet_yolo15
-
-      # CORS
-      - CORS_ORIGINS=http://localhost:5173
-
-      # Ultralytics runtime cache
-      - YOLO_CONFIG_DIR=/tmp/Ultralytics
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./api:/app
-      - ./images:/data/images
-      - ./imagenet_yolo15:/data/imagenet_yolo15:ro
-      - ./3D/data/raw:/data/raw:ro
-      - pip_cache:/root/.cache/pip
-
-  frontend:
-    build: ./frontend
-    container_name: objectlens-frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
-    environment:
-      - VITE_API_BASE=http://localhost:8000
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/usr/src/app/frontend
-      # frontend source mount only; raw 3D data is served from backend (/data/raw)
+networks:
+  objectlens-network:
+    driver: bridge
 
 volumes:
   mongo_data:
-  pip_cache:
