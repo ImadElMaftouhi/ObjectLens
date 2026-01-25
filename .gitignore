@@ -1,4 +1,5 @@
 # Dependencies
+3D
 node_modules/
 venv/
 env/
@@ -53,7 +54,7 @@ thumbnails/
 playground/
 imagenet_yolo15/
 yolov8n_imagenet152.zip
-raw_data/
+data/
 features/
 scripts/test/**
 archive/**

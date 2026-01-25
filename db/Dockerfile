@@ -1,12 +1,13 @@
-# db/Dockerfile
-FROM mongo:7
+FROM mongo:7.0
 
-# Default database name (optional but convenient)
-ENV MONGO_INITDB_DATABASE=objectlens
-
-# Initialization script: create "images" and "objects" collections
+# Copy initialization script
 COPY init-mongo.js /docker-entrypoint-initdb.d/
 
+# Create directory for MongoDB data
+RUN mkdir -p /data/db
+
+# Expose MongoDB port
 EXPOSE 27017
 
-CMD ["mongod", "--bind_ip_all"]
+# Use default MongoDB entrypoint
+# It will automatically run scripts in /docker-entrypoint-initdb.d/

@@ -1,248 +1,331 @@
-# ObjectLens - A Content-Based Image Retrieval System
+# ObjectLens
 
-A content-based image retrieval system that uses YOLOv8n object detection and classical feature extraction to find visually similar objects in a pre-indexed ImageNet dataset.
+**ObjectLens** is a multimedia mining and indexing system that enables efficient object-based image retrieval using deep learning and similarity search. The system supports both 2D image search (using ImageNet/YOLO) and 3D model retrieval (using pottery dataset), combining computer vision, feature extraction, and vector similarity search.
 
-## Overview
+## 🎯 Overview
 
-ObjectLens enables users to:
-1. Upload an image and detect objects using YOLOv8n
-2. Select a specific detected object
-3. Retrieve the most visually similar objects from a pre-indexed dataset using classical feature descriptors (HSV histogram, Tamura texture, Gabor filters, Fourier descriptors, and orientation histograms)
+ObjectLens allows users to:
+- **Upload an image** and detect objects within it using YOLO
+- **Search for similar objects** across large datasets using FAISS-powered vector similarity
+- **Filter results by class** for more precise retrieval
+- **Visualize 2D and 3D results** through an interactive web interface
+- **Index and retrieve 3D models** based on geometric and visual features
 
-## Architecture
-
-```
-Frontend (React + Vite)
-    ↓ HTTP
-FastAPI Backend
-    ├─ YOLOv8n Object Detection
-    ├─ Feature Extraction Service
-    └─ Similarity Search (Cosine/Euclidean)
-    ↓
-MongoDB (Object Metadata & Features)
-```
-
-## Technology Stack
-
-- **Frontend**: React 19, Vite
-- **Backend**: FastAPI (Python)
-- **Database**: MongoDB
-- **ML Models**: YOLOv8n (Ultralytics)
-- **Feature Extraction**: Classical descriptors (HSV, Tamura, Gabor, Fourier, Orientation)
-- **Containerization**: Docker Compose
-
-## Project Structure
+## 🏗️ Architecture
 
 ```
 ObjectLens/
-├── api/                    # FastAPI backend
-│   ├── app/
-│   │   ├── routers/       # API endpoints
-│   │   ├── services/      # YOLO, feature extraction, similarity
-│   │   └── main.py
-│   └── models/yolo/       # YOLO model weights
-├── frontend/              # React application
-├── db/                    # MongoDB initialization
-├── scripts/               # Preprocessing and utility scripts
-├── docs/                  # Project documentation
-└── docker-compose.yml     # Container orchestration
+├── backend/          # FastAPI server with ML pipelines
+├── frontend/         # React + Vite web interface
+├── scripts/          # Dataset preparation and indexing scripts
+├── data/             # Datasets (ImageNet, Pottery)
+├── db/               # MongoDB configuration
+└── docker-compose.yml
 ```
 
-## Quick Start
+### Technology Stack
+
+**Backend:**
+- FastAPI for REST API
+- YOLOv8 (Ultralytics) for object detection
+- FAISS for fast similarity search
+- MongoDB for metadata storage
+- OpenCV, scikit-image, and custom descriptors for feature extraction
+
+**Frontend:**
+- React 19 with Vite
+- Three.js for 3D model visualization
+- Tailwind CSS for styling
+- React Router for navigation
+
+**Databases:**
+- MongoDB for storing object metadata and features
+- FAISS indices for vector similarity search
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- Git
+- **Python 3.8+** with pip
+- **Node.js 16+** with npm
+- **Docker & Docker Compose** (optional, for containerized deployment)
+- **Git** for cloning the repository
 
-### Running with Docker Compose
+### Installation
 
-1. **Clone the repository**
+1. **Clone the repository:**
    ```bash
    git clone <repository-url>
    cd ObjectLens
    ```
 
-2. **Start all services**
+2. **Set up environment variables:**
    ```bash
-   docker-compose up --build
+   # Copy and configure .env file
+   cp .env.example .env
+   # Edit .env with your configuration
    ```
 
-   This will:
-   - Start MongoDB on port 27017
-   - Run the indexer to populate the database (one-time, if empty)
-   - Start the FastAPI backend on port 8000
-   - Start the React frontend on port 5173
+3. **Run the setup pipeline:**
+   ```bash
+   # This downloads datasets, builds catalogs, and sets up indices
+   bash run_pipeline.sh
+   ```
 
-3. **Access the application**
-   - Frontend: http://localhost:5173
-   - API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
+   The pipeline performs:
+   - Downloads ImageNet Winter21 dataset
+   - Verifies and builds YOLO dataset
+   - Precomputes image features
+   - Downloads pottery 3D models
+   - Builds and splits pottery catalog
+   - Sets up MongoDB and FAISS indices
 
-### Manual Setup (Development)
+### Running the Application
 
-#### Backend Setup
+Make sure to create a local python env : `python -m venv .venv`
+
+#### Option 1: Docker Compose (Recommended)
 
 ```bash
-cd api
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# Start MongoDB
+docker-compose up -d mongo
+
+# Start backend (from project root)
+cd backend
 pip install -r requirements.txt
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
-# Set environment variables (create .env file)
-# MONGO_URI=mongodb://localhost:27017/objectlens
-# YOLO_WEIGHTS=./models/yolo/best.pt
-# DATASET_ROOT=../imagenet_yolo15
-
-uvicorn app.main:app --reload
-```
-
-#### Frontend Setup
-
-```bash
+# Start frontend (in a new terminal)
 cd frontend
 npm install
-
-# Set environment variables (create .env file)
-# VITE_API_BASE=http://localhost:8000
-
 npm run dev
 ```
 
-#### MongoDB Setup
+Access the application at `http://localhost:5173`
 
+#### Option 2: Manual Setup
+
+**Backend:**
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+**MongoDB:**
 ```bash
 # Using Docker
-docker-compose up mongo
+docker run -d -p 27017:27017 --name objectlens-mongo mongo:latest
 
-# Or install MongoDB locally and run
-mongod
+# Or install MongoDB locally
 ```
 
-## API Endpoints
+## 📊 Datasets
 
-### Detection
+### 2D Dataset: ImageNet Winter21
 
-- **POST** `/api/detect`
-  - Upload an image to detect objects
-  - Returns: List of detected objects with bounding boxes, class names, and confidence scores
+- **Purpose:** Object detection and 2D image retrieval
+- **Classes:** Multiple object categories
+- **Format:** JPEG images with YOLO annotations
+- **Location:** `data/imagenet_4_yolo/`
+
+### 3D Dataset: Pottery Models
+
+- **Purpose:** 3D model retrieval and visualization
+- **Classes:** Amphora, Hydria, Krater, Kylix, and more
+- **Format:** OBJ files with textures
+- **Location:** `data/raw/3DModels/`
+
+## 🔍 How It Works
+
+### 2D Image Search Pipeline
+
+1. **Upload & Detection:** User uploads an image → YOLO detects objects → user selects an object
+2. **Feature Extraction:** System crops the object → extracts deep features (weighted, L2-normalized vector)
+3. **Similarity Search:** FAISS searches the index → returns top-k nearest neighbors
+4. **Result Retrieval:** System looks up metadata in MongoDB → returns images with highlighted matching objects
+
+### 3D Model Retrieval Pipeline
+
+1. **Feature Extraction:** Extract geometric descriptors (shape, curvature, distribution)
+2. **Indexing:** Build FAISS index from 3D feature vectors
+3. **Query:** User searches by uploading a 3D model or selecting from catalog
+4. **Visualization:** Results displayed with Three.js 3D viewer
+
+## 🛠️ API Endpoints
+
+### Health Check
+```bash
+GET /health
+GET /health/dataset
+```
+
+### Object Detection
+```bash
+POST /api/detect
+# Upload image, returns detected objects with bounding boxes
+```
 
 ### Search
-
-- **POST** `/api/search/topk`
-  - Upload an object crop to find similar objects
-  - Query parameters:
-    - `top_k` (default: 20): Number of results to return
-    - `metric` (default: "cosine"): Similarity metric ("cosine" or "euclidean")
-    - `same_class_only` (default: true): Filter to same class only
-  - Form data:
-    - `file`: Image file (object crop)
-    - `query_class`: Optional class name for filtering
-  - Returns: Top-K similar images with scores and metadata
-
-- **POST** `/api/search/reload-cache`
-  - Reload the in-memory feature cache from MongoDB
-  - Use after running the indexing script
-
-- **POST** `/api/search/select-object`
-  - Debug endpoint for object selection
-
-### Health Checks
-
-- **GET** `/health` - API health status
-- **GET** `/health/dataset` - Dataset availability check
-
-### Static Files
-
-- **GET** `/dataset/{path}` - Serve images from the dataset
-
-## Indexing (One-time Setup)
-
-Before using the search functionality, the dataset must be indexed:
-
-1. **Ensure MongoDB is running**
-   ```bash
-   docker-compose up mongo
-   ```
-
-2. **Run the indexer**
-   ```bash
-   docker-compose up indexer
-   ```
-
-   Or manually:
-   ```bash
-   cd api
-   python app/cli/run_indexer.py
-   ```
-
-   This will:
-   - Detect objects in all dataset images using YOLOv8n
-   - Extract features for each detected object
-   - Store metadata and features in MongoDB
-
-3. **Reload the cache** (if running manually)
-   ```bash
-   curl -X POST http://localhost:8000/api/search/reload-cache
-   ```
-
-## Dataset
-
-The system expects a YOLO-formatted dataset in `imagenet_yolo15/`:
-- `images/train/` - Training images
-- `images/val/` - Validation images
-- `labels/train/` - YOLO format labels
-- `labels/val/` - YOLO format labels
-
-The dataset should contain 15 ImageNet synsets with approximately 1,000 images per class.
-
-## Features
-
-- **Object Detection**: Fine-tuned YOLOv8n on 15 classes
-- **Feature Extraction**: Multi-descriptor approach combining:
-  - HSV color histogram
-  - Dominant colors (K-means)
-  - Tamura texture features
-  - Gabor filters
-  - Fourier descriptors
-  - Orientation histogram
-- **Similarity Search**: Cosine or Euclidean distance on normalized feature vectors
-- **Class Filtering**: Optional filtering to same-class objects only
-- **Region-Based CBIR**: Features extracted from cropped object regions (not whole images)
-
-## Development
-
-### Environment Variables
-
-#### Backend (`.env` in `api/`)
-```env
-MONGO_URI=mongodb://localhost:27017/objectlens
-YOLO_WEIGHTS=./models/yolo/best.pt
-YOLO_CONF=0.25
-YOLO_IOU=0.45
-YOLO_IMGSZ=640
-DATASET_ROOT=../imagenet_yolo15
-DATASET_SPLIT=val
-CORS_ORIGINS=http://localhost:5173
-TOPK_DEFAULT=20
+```bash
+POST /api/search/topk?top_k=10&metric=cosine&same_class_only=false
+# Parameters:
+# - top_k: Number of results to return
+# - metric: 'cosine' or 'euclidean'
+# - same_class_only: Filter by object class
 ```
 
-#### Frontend (`.env` in `frontend/`)
-```env
-VITE_API_BASE=http://localhost:8000
+### Sample Data
+```bash
+GET /api/samples/random?count=10
+# Returns random sample images from dataset
 ```
 
-## Documentation
+See [`backend/test_commands.md`](backend/test_commands.md) for detailed API testing examples.
 
-- [Project Overview](docs/overview.md)
-- [Project Map](docs/project_map.md)
-- [Folder Structure](docs/FOLDER_STRUCTURE.md)
-- [Logic Flow](docs/logic_flow.md)
+## 📁 Project Structure
 
-## License
-Apache License - Version 2.0, January 2004
+### Backend (`/backend`)
 
-## Acknowledgments
+```
+backend/
+├── main.py              # FastAPI application entry point
+├── routers/             # API route handlers
+│   ├── detect.py        # Object detection endpoints
+│   ├── search.py        # Similarity search endpoints
+│   └── samples.py       # Sample data endpoints
+├── services/            # Business logic
+│   ├── yolo_service.py  # YOLO detection service
+│   ├── feature_extraction.py  # Feature extraction
+│   ├── faiss_service.py # FAISS index management
+│   └── compute_similarity.py  # Similarity computation
+├── core/                # Configuration and utilities
+├── db/                  # Database models and connections
+└── schemas.py           # Pydantic models
+```
 
-- YOLOv8 by Ultralytics
-- ImageNet dataset
+### Frontend (`/frontend`)
+
+```
+frontend/
+├── src/
+│   ├── main.jsx         # Application entry point
+│   ├── App.jsx          # Root component with routing
+│   ├── Home.jsx         # Main search interface
+│   ├── Pr2d.jsx         # 2D preview page
+│   ├── Pr3d.jsx         # 3D preview page
+│   ├── api.js           # API client
+│   └── components/
+│       └── ModelViewer.jsx  # 3D model viewer
+└── public/              # Static assets
+```
+
+See [`frontend/README.md`](frontend/README.md) for detailed frontend documentation.
+
+### Scripts (`/scripts`)
+
+```
+scripts/
+├── dataset/             # Dataset download and preparation
+│   ├── imagenet_*.py    # ImageNet pipeline scripts
+│   └── pottery_*.py     # Pottery dataset scripts
+├── preprocessing/       # Feature precomputation
+└── indexing/            # Index building and evaluation
+```
+
+## 🧪 Testing
+
+### Backend Tests
+
+```bash
+# Test feature extraction pipeline
+python backend/test_feature_pipeline.py
+
+# Test 3D retrieval
+python backend/test_3D_retrieval.py
+
+# Test system flow
+python backend/test_system_flow.py
+```
+
+### API Testing
+
+```bash
+# Using curl
+curl -X POST "http://localhost:8000/api/search/topk?top_k=10" \
+  -F "file=@path/to/image.jpg"
+
+# Using Python
+python backend/test_search_endpoint.py
+```
+
+## 🎨 Features
+
+### Current Features
+
+- ✅ Object detection with YOLOv8
+- ✅ FAISS-powered similarity search
+- ✅ Class-based filtering
+- ✅ 2D image retrieval
+- ✅ 3D model retrieval
+- ✅ Interactive web interface
+- ✅ MongoDB metadata storage
+- ✅ Docker support
+
+### Planned Features
+
+- 🔄 Batch upload and processing
+- 🔄 Advanced 3D feature descriptors
+- 🔄 Real-time collaborative search
+- 🔄 Export and annotation tools
+
+## 🔧 Configuration
+
+Key configuration files:
+
+- **`.env`** - Environment variables (database URLs, API keys, dataset paths)
+- **`backend/core/config.py`** - Backend settings
+- **`frontend/src/api.js`** - API base URL configuration
+- **`docker-compose.yml`** - Container orchestration
+
+## 📚 Documentation
+
+- [Frontend Documentation](frontend/README.md) - Detailed frontend guide
+- [Backend Flow](backend/readme.md) - System architecture overview
+- [Test Commands](backend/test_commands.md) - API testing examples
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is part of the M232 Multimedia Mining & Indexing course at IASD.
+
+## 🙏 Acknowledgments
+
+- **ImageNet** for the image dataset
+- **Ultralytics** for YOLOv8
+- **FAISS** by Meta AI for similarity search
+- **Three.js** for 3D visualization
+
+## 📧 Contact
+
+For questions or issues, please open an issue on the repository.
+
+---
+
+**Built for MST.IASD.232 - multimedia mining and indexing course**
