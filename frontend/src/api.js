@@ -84,7 +84,7 @@ export async function searchTopK_3d({
   file,
   topK = 10,
   method = "depth",
-  metric = "l2",
+  metric = "cosine",
   aggregation = "mean",
   imageSize = 256,
   l2Normalize = false
