@@ -1,5 +1,11 @@
 export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000"
 
+/**
+ * Calls the backend to detect objects in an image file using YOLO.
+ * @param {File|Blob} file - Input image to detect objects in.
+ * @returns {Promise<Object>} Parsed detection result from the API.
+ * @throws {Error} If the request fails or server returns an error.
+ */
 export async function detectObjects(file) {
   const form = new FormData()
   form.append("file", file)
@@ -17,7 +23,19 @@ export async function detectObjects(file) {
   return res.json()
 }
 
-// object crop → Top-K (with optional class filtering + optional descriptor viz)
+/**
+ * Calls the backend to search for similar objects in a 2D image using Top-K.
+ * @param {Object} options - Search parameters.
+ * @param {Blob} options.blob - The image blob to search in.
+ * @param {string} options.filename - The filename of the image.
+ * @param {number} options.topK - Number of similar objects to return (default: 20).
+ * @param {string} options.queryClass - Optional class filter.
+ * @param {boolean} options.sameClassOnly - Whether to only return objects of the same class (default: true).
+ * @param {string} options.metric - Distance metric: 'l2', 'l1', or 'cosine' (default: 'cosine').
+ * @param {boolean} options.includeViz - Whether to include descriptor visualizations (default: false).
+ * @returns {Promise<Object>} API response with results array.
+ * @throws {Error} If the request fails or server returns an error.
+ */
 export async function searchTopK_2D({
   blob,
   filename,
