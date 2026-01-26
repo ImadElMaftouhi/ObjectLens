@@ -48,22 +48,39 @@ def download_synset(wnid):
         print(f"\nDownloading {wnid}...")
         resp = requests.get(tar_url, stream=True, timeout=300)
         resp.raise_for_status()
-        total_size = int(resp.headers.get('content-length', 0))
 
-        with open(tar_path, 'wb') as f, tqdm(
+        cl = resp.headers.get("content-length")
+        if not cl or not cl.strip().isdigit():
+            print(f"    Failed {wnid}: missing or invalid Content-Length")
+            return False
+        total_size = int(cl)
+        if total_size <= 0:
+            print(f"    Failed {wnid}: Content-Length is 0")
+            return False
+
+        bytes_written = 0
+        with open(tar_path, "wb") as f, tqdm(
             desc=f"  Downloading {wnid}",
             total=total_size,
-            unit='B',
+            unit="B",
             unit_scale=True,
             unit_divisor=1024,
         ) as pbar:
             for chunk in resp.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
-                    pbar.update(len(chunk))
+                    n = len(chunk)
+                    bytes_written += n
+                    pbar.update(n)
+
+        if bytes_written != total_size:
+            print(f"    Failed {wnid}: incomplete download ({bytes_written}/{total_size} bytes)")
+            if os.path.exists(tar_path):
+                os.remove(tar_path)
+            return False
 
         os.makedirs(extract_dir, exist_ok=True)
-        with tarfile.open(tar_path, 'r') as tar:
+        with tarfile.open(tar_path, "r") as tar:
             tar.extractall(extract_dir)
         os.remove(tar_path)
         print(f"    Completed {wnid}")
