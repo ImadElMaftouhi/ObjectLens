@@ -27,7 +27,7 @@ WNIDS = [
     'n04254680',  # soccer_ball
     'n03790512',  # motorcycle
     'n04485082',  # tripod
-    'n00007846',  # person   <-- replaced cup
+    'n00007846',  # person
 ]
 
 # Download annotations from: https://www.image-net.org/data/bboxes_annotations.tar.gz
@@ -232,7 +232,6 @@ def main():
     
     os.makedirs(DATASET_DIR, exist_ok=True)
     
-    # Download synsets from Winter 2021 release
     print("\n" + "="*60)
     print("Downloading 15 Synsets (Winter 2021 Release)")
     print("="*60)
@@ -244,10 +243,7 @@ def main():
     
     print(f"\n✓ Downloaded {success_count}/{len(WNIDS)} synsets")
     
-    # Download bounding boxes
     download_bounding_boxes()
-    
-    # Verify downloads
     verify_downloads()
     
     print("\n" + "="*60)
