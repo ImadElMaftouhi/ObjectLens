@@ -41,21 +41,15 @@ BBOX_URL = "https://www.image-net.org/data/bboxes_annotations.tar.gz"
 
 
 def download_synset(wnid):
-    """
-    Download a single synset from Winter 2021 release.
-    """
     tar_url = f"{WINTER21_BASE_URL}/{wnid}.tar"
     tar_path = os.path.join(DATASET_DIR, f"{wnid}.tar")
     extract_dir = os.path.join(DATASET_DIR, wnid)
-    
     try:
-        # Download tar file
         print(f"\nDownloading {wnid}...")
-        response = requests.get(tar_url, stream=True, timeout=300)
-        response.raise_for_status()
-        
-        total_size = int(response.headers.get('content-length', 0))
-        
+        resp = requests.get(tar_url, stream=True, timeout=300)
+        resp.raise_for_status()
+        total_size = int(resp.headers.get('content-length', 0))
+
         with open(tar_path, 'wb') as f, tqdm(
             desc=f"  Downloading {wnid}",
             total=total_size,
@@ -63,22 +57,17 @@ def download_synset(wnid):
             unit_scale=True,
             unit_divisor=1024,
         ) as pbar:
-            for chunk in response.iter_content(chunk_size=8192):
+            for chunk in resp.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
                     pbar.update(len(chunk))
-        
-        # Extract tar file
-        print(f"  Extracting {wnid}...")
+
         os.makedirs(extract_dir, exist_ok=True)
         with tarfile.open(tar_path, 'r') as tar:
             tar.extractall(extract_dir)
-        
-        # Clean up tar file
         os.remove(tar_path)
         print(f"    Completed {wnid}")
         return True
-        
     except Exception as e:
         print(f"    Failed {wnid}: {e}")
         if os.path.exists(tar_path):
