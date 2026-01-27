@@ -94,103 +94,70 @@ def download_synset(wnid):
 
 def download_bounding_boxes():
     """
-    Download ImageNet bounding box annotations.
-    Structure: bboxes_annotations.tar.gz -> <WNID>.tar.gz -> Annotation/<WNID>/*.xml
+    Download and extract ImageNet bounding box annotations for WNIDS.
     """
-    print("\n" + "="*60)
-    print("Downloading Bounding Box Annotations")
-    print("="*60)
-    
     tar_gz_path = os.path.join(DATASET_DIR, "bboxes_annotations.tar.gz")
     temp_extract_dir = os.path.join(DATASET_DIR, "bboxes_temp")
-    
+
     try:
-        # Download tar.gz file
-        print("\nDownloading bounding box annotations...")
-        response = requests.get(BBOX_URL, stream=True, timeout=600)
-        response.raise_for_status()
-        
-        total_size = int(response.headers.get('content-length', 0))
-        
-        with open(tar_gz_path, 'wb') as f, tqdm(
-            desc="  Downloading bboxes.tar.gz",
+        # Download bounding box annotations tar.gz
+        resp = requests.get(BBOX_URL, stream=True, timeout=600)
+        resp.raise_for_status()
+        total_size = int(resp.headers.get("content-length", 0))
+        with open(tar_gz_path, "wb") as f, tqdm(
+            desc="Downloading bboxes.tar.gz",
             total=total_size,
             unit='B',
             unit_scale=True,
             unit_divisor=1024,
         ) as pbar:
-            for chunk in response.iter_content(chunk_size=8192):
+            for chunk in resp.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
                     pbar.update(len(chunk))
-        
-        # Extract the parent tar.gz to get individual <WNID>.tar.gz files
-        print("  Extracting parent tar.gz...")
+
+        # Extract parent tar.gz
         os.makedirs(temp_extract_dir, exist_ok=True)
         with tarfile.open(tar_gz_path, 'r:gz') as tar_gz:
             tar_gz.extractall(temp_extract_dir)
-        
-        # Find all .tar.gz files in the extracted directory (these are individual synset archives)
+
         tar_gz_files = list(Path(temp_extract_dir).glob("*.tar.gz"))
-        print(f"  Found {len(tar_gz_files)} synset tar.gz files")
-        
-        # Extract only the .tar.gz files matching our WNIDs
-        print("  Extracting needed synset annotations...")
         os.makedirs(BBOX_DIR, exist_ok=True)
         extracted_count = 0
-        
-        for synset_tar_gz in tqdm(tar_gz_files, desc="  Processing"):
-            try:
-                # Extract WNID from filename (format: <wnid>.tar.gz)
-                wnid = synset_tar_gz.stem.replace('.tar', '')
-                
-                if wnid in WNIDS:
-                    # Create temporary directory for this synset's extraction
-                    synset_temp_dir = os.path.join(temp_extract_dir, f"{wnid}_temp")
-                    os.makedirs(synset_temp_dir, exist_ok=True)
-                    
-                    # Extract the synset's tar.gz
-                    with tarfile.open(synset_tar_gz, 'r:gz') as synset_tar:
-                        synset_tar.extractall(synset_temp_dir)
-                    
-                    # Find XML files in Annotation/<WNID>/ directory
-                    annotation_dir = os.path.join(synset_temp_dir, "Annotation", wnid)
-                    
-                    if os.path.exists(annotation_dir):
-                        # Copy XML files to final destination
-                        dest_dir = os.path.join(BBOX_DIR, wnid)
-                        os.makedirs(dest_dir, exist_ok=True)
-                        
-                        xml_files = list(Path(annotation_dir).glob("*.xml"))
-                        for xml_file in xml_files:
-                            shutil.copy2(xml_file, os.path.join(dest_dir, xml_file.name))
-                        
-                        xml_count = len(xml_files)
-                        extracted_count += xml_count
-                        print(f"        {wnid}: {xml_count} annotations")
-                    else:
-                        print(f"        {wnid}: Annotation directory not found")
-                    
-                    # Clean up temporary extraction directory
-                    shutil.rmtree(synset_temp_dir, ignore_errors=True)
-                    
-            except Exception as e:
-                print(f"    ✗ Failed to extract {synset_tar_gz.name}: {e}")
+
+        for synset_tar_gz in tar_gz_files:
+            wnid = synset_tar_gz.stem.replace('.tar', '')
+            if wnid not in WNIDS:
                 continue
-        
-        # Clean up
+            synset_temp_dir = os.path.join(temp_extract_dir, f"{wnid}_temp")
+            os.makedirs(synset_temp_dir, exist_ok=True)
+            try:
+                with tarfile.open(synset_tar_gz, 'r:gz') as st:
+                    st.extractall(synset_temp_dir)
+                annotation_dir = os.path.join(synset_temp_dir, "Annotation", wnid)
+                if os.path.exists(annotation_dir):
+                    dest_dir = os.path.join(BBOX_DIR, wnid)
+                    os.makedirs(dest_dir, exist_ok=True)
+                    xml_files = list(Path(annotation_dir).glob("*.xml"))
+                    for xml_file in xml_files:
+                        shutil.copy2(xml_file, os.path.join(dest_dir, xml_file.name))
+                    extracted_count += len(xml_files)
+                shutil.rmtree(synset_temp_dir, ignore_errors=True)
+            except Exception:
+                shutil.rmtree(synset_temp_dir, ignore_errors=True)
+                continue
+
         os.remove(tar_gz_path)
         shutil.rmtree(temp_extract_dir, ignore_errors=True)
-        
-        print(f"  ✓ Extracted {extracted_count} annotation files for {len(WNIDS)} synsets")
+        print(f"Extracted {extracted_count} bbox annotations")
         return True
-        
+
     except Exception as e:
-        print(f"  ✗ Failed to download bounding boxes: {e}")
         if os.path.exists(tar_gz_path):
             os.remove(tar_gz_path)
         if os.path.exists(temp_extract_dir):
             shutil.rmtree(temp_extract_dir, ignore_errors=True)
+        print(f"Failed to download bounding boxes: {e}")
         return False
 
 
