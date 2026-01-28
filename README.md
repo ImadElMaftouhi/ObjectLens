@@ -46,7 +46,7 @@ ObjectLens/
 
 ### Prerequisites
 
-- **Python 3.8+** with pip
+- **Python 3.8+** with pip (Make sure to create a local python env : `python -m venv .venv`)
 - **Node.js 16+** with npm
 - **Docker & Docker Compose** (optional, for containerized deployment)
 - **Git** for cloning the repository
@@ -82,8 +82,6 @@ ObjectLens/
 
 ### Running the Application
 
-Make sure to create a local python env : `python -m venv .venv`
-
 #### Option 1: Docker Compose (Recommended)
 
 ```bash
@@ -111,7 +109,7 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+cd ..; uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Frontend:**
