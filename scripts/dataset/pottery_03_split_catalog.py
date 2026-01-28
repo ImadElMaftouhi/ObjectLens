@@ -46,7 +46,7 @@ SEED = 42
 def _project_root() -> Path:
     path = Path(__file__).resolve()
     for _ in range(5):
-        if (path / "3D_data").is_dir() or (path / ".git").is_dir():
+        if (path / ".venv").is_dir() or (path / ".git").is_dir():
             return path
         path = path.parent
     return Path(__file__).resolve().parent.parent.parent
@@ -104,8 +104,8 @@ def compute_split_counts(n: int) -> Tuple[int, int, str]:
 
 def main() -> None:
     root = _project_root() 
-    # print(f"Root: {root}") ; exit(0)
-    split_dir = root / "3D_data" / "splits"
+    print(f"Root: {root}")
+    split_dir = root / "data" / "3D_data" / "splits"
     assert split_dir.exists(), f"Split directory does not exist: {split_dir}"
     catalog_path = split_dir / "catalog.csv"
 
@@ -216,7 +216,7 @@ def main() -> None:
     print(f"  Rule: n>={MIN_CLASS_FOR_SPLIT} => 80/20, else index-only")
     print(f"  Seed: {SEED}\n")
 
-    print("Next: python scripts/03_init_mongodb.py")
+    print("Next: python .\scripts\dataset\pottery_04_init_mongodb.py")
 
 
 if __name__ == "__main__":
