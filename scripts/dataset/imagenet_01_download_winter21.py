@@ -40,13 +40,18 @@ WINTER21_BASE_URL = "https://image-net.org/data/winter21_whole"
 BBOX_URL = "https://www.image-net.org/data/bboxes_annotations.tar.gz"
 
 
-def download_synset(wnid):
+def download_synset(wnid, session=None):
     tar_url = f"{WINTER21_BASE_URL}/{wnid}.tar"
     tar_path = os.path.join(DATASET_DIR, f"{wnid}.tar")
     extract_dir = os.path.join(DATASET_DIR, wnid)
+    
+    if session is None:
+        session = requests.Session()
+    
     try:
         print(f"\nDownloading {wnid}...")
-        resp = requests.get(tar_url, stream=True, timeout=300)
+        # Use larger timeout and chunk size for better performance
+        resp = session.get(tar_url, stream=True, timeout=(30, 600))
         resp.raise_for_status()
 
         cl = resp.headers.get("content-length")
@@ -59,6 +64,8 @@ def download_synset(wnid):
             return False
 
         bytes_written = 0
+        # Increase chunk size from 8KB to 1MB for better throughput
+        chunk_size = 1024 * 1024  # 1MB chunks
         with open(tar_path, "wb") as f, tqdm(
             desc=f"  Downloading {wnid}",
             total=total_size,
@@ -66,7 +73,7 @@ def download_synset(wnid):
             unit_scale=True,
             unit_divisor=1024,
         ) as pbar:
-            for chunk in resp.iter_content(chunk_size=8192):
+            for chunk in resp.iter_content(chunk_size=chunk_size):
                 if chunk:
                     f.write(chunk)
                     n = len(chunk)
@@ -100,10 +107,13 @@ def download_bounding_boxes():
     temp_extract_dir = os.path.join(DATASET_DIR, "bboxes_temp")
 
     try:
+        # Use session for connection reuse
+        session = requests.Session()
         # Download bounding box annotations tar.gz
-        resp = requests.get(BBOX_URL, stream=True, timeout=600)
+        resp = session.get(BBOX_URL, stream=True, timeout=(30, 600))
         resp.raise_for_status()
         total_size = int(resp.headers.get("content-length", 0))
+        chunk_size = 1024 * 1024  # 1MB chunks
         with open(tar_gz_path, "wb") as f, tqdm(
             desc="Downloading bboxes.tar.gz",
             total=total_size,
@@ -111,7 +121,7 @@ def download_bounding_boxes():
             unit_scale=True,
             unit_divisor=1024,
         ) as pbar:
-            for chunk in resp.iter_content(chunk_size=8192):
+            for chunk in resp.iter_content(chunk_size=chunk_size):
                 if chunk:
                     f.write(chunk)
                     pbar.update(len(chunk))
@@ -209,11 +219,25 @@ def main():
     print("Downloading 15 Synsets (Winter 2021 Release)")
     print("="*60)
     
+    # Use session for connection pooling and reuse
+    session = requests.Session()
+    # Configure adapter for better performance
+    adapter = requests.adapters.HTTPAdapter(
+        pool_connections=10,
+        pool_maxsize=10,
+        max_retries=3
+    )
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    
+    # Download sequentially (parallel downloads may hit server limits)
+    # But with optimized chunk size and session reuse
     success_count = 0
     for wnid in WNIDS:
-        if download_synset(wnid):
+        if download_synset(wnid, session=session):
             success_count += 1
     
+    session.close()
     print(f"\n✓ Downloaded {success_count}/{len(WNIDS)} synsets")
     
     download_bounding_boxes()
