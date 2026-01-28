@@ -162,7 +162,7 @@ def delete_file(path: Path) -> None:
 def main() -> None:
     root = _project_root()
     print(f"Root: {root}")
-    raw_dir = root / "3D_data" / "raw"
+    raw_dir = root / "data" / "3D_data" / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
 
     dataset_zip = raw_dir / "3DPotteryDataset_v_1.zip"
