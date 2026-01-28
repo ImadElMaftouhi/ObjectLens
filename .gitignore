@@ -45,7 +45,6 @@ __pycache__/
 # Uploads and generated files
 uploads/
 thumbnails/
-*.pt
 *.pth
 *.index
 *.h5
@@ -78,7 +77,7 @@ backend/uploads/*
 
 # Python API
 api/__pycache__/
-api/models/*.pt
+# api/models/*.pt
 api/indexes/*.index
 api/thumbnails/
 
