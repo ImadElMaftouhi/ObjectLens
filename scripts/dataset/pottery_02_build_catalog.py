@@ -37,7 +37,7 @@ GROUNDTRUTH_NAME = "Database_vessels_sorted_per_id_and_groundtruth.txt"
 def _project_root() -> Path:
     path = Path(__file__).resolve()
     for _ in range(5):
-        if (path / "3D_data").is_dir() or (path / ".git").is_dir():
+        if (path / ".venv").is_dir() or (path / ".git").is_dir():
             return path
         path = path.parent
     return Path(__file__).resolve().parent.parent.parent
@@ -70,10 +70,10 @@ def write_csv(path: Path, header: List[str], rows: List[List[str]]) -> None:
 
 def main() -> None:
     root = _project_root()
-    # print(f"Root: {root}") ; exit(0)
-    raw_dir = root / "3D_data" / "raw"
+    print(f"Root: {root}")
+    raw_dir = root / "data" / "3D_data" / "raw"
     assert raw_dir.exists(), f"Raw directory does not exist: {raw_dir}"
-    out_dir = root / "3D_data" / "splits"
+    out_dir = root / "data" / "3D_data" / "splits"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     gt_path = find_groundtruth_file(raw_dir)
@@ -142,7 +142,7 @@ def main() -> None:
     print(f"  Excluded (Other)   : {excluded}")
     print(f"  Skipped duplicates : {skipped_dupes}")
     print(f"  Skipped bad lines  : {skipped_bad}")
-    print("\nNext: run -> python scripts/02_split_catalog.py")
+    print("\nNext: run -> python .\scripts\dataset\pottery_03_split_catalog.py")
 
 
 if __name__ == "__main__":
