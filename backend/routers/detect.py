@@ -8,7 +8,7 @@ from backend.services.yolo_service import YoloService
 from backend.utils.images import bytes_to_bgr
 from backend.schemas import DetectResponse, DetectionOut, BBoxXYWH
 
-router = APIRouter()
+router = APIRouter(tags=["detect"])
 
 yolo = YoloService(
     weights_path=settings.YOLO_WEIGHTS,
