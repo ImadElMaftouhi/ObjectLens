@@ -1,24 +1,24 @@
-# Dependencies
-3D
+# Node & Python dependencies
 node_modules/
 venv/
 env/
 ENV/
 .venv/
+*.egg-info/
+__pycache__/
 
 # Environment variables
 .env
-.env.local
-.env.*.local
+.env.*
 
-# IDE
+# IDE/editor settings
 .vscode/
 .idea/
+.cursor/
 *.swp
-*.swo
 *~
 
-# OS
+# System files
 .DS_Store
 Thumbs.db
 
@@ -32,59 +32,44 @@ yarn-error.log*
 # Build outputs
 dist/
 build/
-*.pyc
-__pycache__/
-*.py[cod]
-*$py.class
 
 # Database
 *.db
-*.sqlite
-*.sqlite3
-
-# Uploads and generated files
+*.sqlite*
+ 
+# Uploads & generated files
 uploads/
 thumbnails/
 *.pth
-*.index
 *.h5
 
-# Dataset (keep structure, ignore large files if needed)
+# Datasets & archives
 playground/
 imagenet_yolo15/
 yolov8n_imagenet152.zip
 data/
 features/
-scripts/test/**
-archive/**
+archive/
 
-
-# Python
-*.egg-info/
+# Python test/cache
 .pytest_cache/
 .coverage
 htmlcov/
 
 # Frontend
 frontend/build/
-frontend/.pnp
-frontend/.pnp.js
 
 # Backend
 backend/node_modules/
-backend/uploads/*
+backend/uploads/
 !backend/uploads/.gitkeep
 
 # Python API
 api/__pycache__/
-# api/models/*.pt
 api/indexes/*.index
 api/thumbnails/
 
-# Temporary files
+# Temp files & caches
 *.tmp
 *.temp
 .cache/
-
-# Virtual environments
-./venv
