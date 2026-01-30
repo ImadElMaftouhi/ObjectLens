@@ -24,7 +24,7 @@ app.add_middleware(
 
 # Serve 2D dataset images (ImageNet)
 # Example URL: /dataset/images/val/xxx.jpg
-dataset_dir = settings.get_dataset_root()
+dataset_dir = settings.get_imagenet_dataset_path()
 logger.info(f"Mounting 2D dataset directory: {dataset_dir}")
 if dataset_dir.exists():
     app.mount(
@@ -60,7 +60,7 @@ def health():
 
 @app.get("/health/dataset")
 def health_dataset():
-    dataset_root = settings.get_dataset_root()
+    dataset_root = settings.get_imagenet_dataset_path()
     raw_root = settings.get_raw_data_root()
     return {
         "2d_dataset_root": str(dataset_root),

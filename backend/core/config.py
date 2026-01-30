@@ -106,7 +106,7 @@ class Settings(BaseSettings):
             path_str = path_str.lstrip('/')
         return path_str
 
-    def get_dataset_root(self) -> Path:
+    def get_imagenet_dataset_path(self) -> Path:
         """Get resolved path to 2D dataset root."""
         path_str = self.DATASET_ROOT
         # Normalize to handle Docker-style paths on Windows
