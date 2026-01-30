@@ -3,75 +3,105 @@
     Run ObjectLens setup pipeline (PowerShell version)
 
 .DESCRIPTION
-    Equivalent to run_pipeline.sh for Windows/PowerShell users.
-    Executes dataset download, preprocessing, and database/index setup tasks.
+    Cross-platform setup: downloads datasets, preprocesses data, and configures database and index.
+    This script is the PowerShell analogue of run_pipeline.sh, designed for Windows users.
 
 .NOTES
-    Make sure Python and all requirements are installed and available in PATH.
-    If using a virtual environment, activate it before running this script.
+    Ensure Python and all dependencies are installed and on your PATH.
+    Activate your virtual environment before running if required.
 #>
 
-# Color constants
-$GREEN  = "`e[0;32m"
-$YELLOW = "`e[1;33m"
-$RED    = "`e[0;31m"
-$NC     = "`e[0m"
+function Write-Colored {
+    param (
+        [string]$Text,
+        [string]$Color = "White"
+    )
+    $colors = @{
+        "Green"  = "DarkGreen"
+        "Yellow" = "Yellow"
+        "Red"    = "Red"
+        "Reset"  = "White"
+    }
+    Write-Host $Text -ForegroundColor $colors[$Color]
+}
+
+function Run-Step {
+    param (
+        [string]$Message,
+        [string]$Command,
+        [int]$StepNumber,
+        [int]$TotalSteps
+    )
+    $yellowStep = "[{0}/{1}]" -f $StepNumber, $TotalSteps
+    Write-Colored "$yellowStep $Message" "Yellow"
+    Invoke-Expression $Command
+    if ($LASTEXITCODE -ne 0) {
+        Write-Colored "Failed at step $StepNumber: $Message" "Red"
+        exit 1
+    }
+}
 
 Write-Host "==========================================" 
 Write-Host "  ObjectLens Setup Pipeline"
 Write-Host "=========================================="
 
-# Dataset scripts
-Write-Host "$YELLOW[1/8]$NC Downloading ImageNet Winter21..."
-python scripts/dataset/imagenet_01_download_winter21.py
-if ($LASTEXITCODE -ne 0) { Write-Host "$RED Failed at step 1 $NC"; exit 1 }
+$TotalSteps = 8
 
-Write-Host "$YELLOW[2/8]$NC Verifying download..."
-python scripts/dataset/imagenet_02_verify_download.py
-if ($LASTEXITCODE -ne 0) { Write-Host "$RED Failed at step 2 $NC"; exit 1 }
+# Step 1: Download ImageNet
+Run-Step "Downloading ImageNet Winter21..." "python scripts/dataset/imagenet_01_download_winter21.py" 1 $TotalSteps
 
-Write-Host "$YELLOW[3/8]$NC Building YOLO dataset..."
-python scripts/dataset/imagenet_03_build_yolo_dataset.py
-if ($LASTEXITCODE -ne 0) { Write-Host "$RED Failed at step 3 $NC"; exit 1 }
+# Step 2: Verify
+Run-Step "Verifying download..." "python scripts/dataset/imagenet_02_verify_download.py" 2 $TotalSteps
 
-# Preprocessing
-Write-Host "$YELLOW[4/8]$NC Precomputing features..."
-python scripts/preprocessing/imagenet_04_precompute_features.py
-if ($LASTEXITCODE -ne 0) { Write-Host "$RED Failed at step 4 $NC"; exit 1 }
+# Step 3: Build YOLO dataset
+Run-Step "Building YOLO dataset..." "python scripts/dataset/imagenet_03_build_yolo_dataset.py" 3 $TotalSteps
 
-# Pottery scripts
-Write-Host "$YELLOW[5/8]$NC Downloading pottery dataset..."
-python scripts/dataset/pottery_01_download.py
-if ($LASTEXITCODE -ne 0) { Write-Host "$RED Failed at step 5 $NC"; exit 1 }
+# Step 4: Precompute features
+Run-Step "Precomputing features..." "python scripts/preprocessing/imagenet_04_precompute_features.py" 4 $TotalSteps
 
-Write-Host "$YELLOW[6/8]$NC Building pottery catalog..."
-python scripts/dataset/pottery_02_build_catalog.py
-if ($LASTEXITCODE -ne 0) { Write-Host "$RED Failed at step 6 $NC"; exit 1 }
+# Step 5: Download pottery dataset
+Run-Step "Downloading pottery dataset..." "python scripts/dataset/pottery_01_download.py" 5 $TotalSteps
 
-Write-Host "$YELLOW[7/8]$NC Splitting pottery catalog..."
-python scripts/dataset/pottery_03_split_catalog.py
-if ($LASTEXITCODE -ne 0) { Write-Host "$RED Failed at step 7 $NC"; exit 1 }
+# Step 6: Build pottery catalog
+Run-Step "Building pottery catalog..." "python scripts/dataset/pottery_02_build_catalog.py" 6 $TotalSteps
 
-# Database setup
-Write-Host "$YELLOW[8/8]$NC Setting up database and index..."
-# On Windows, bash scripts generally can't be executed without an appropriate shell.
-# If 'bash' is installed (WSL/git-bash/MinGW), remove the comment below.
-# Otherwise, convert setup_db_and_index.sh to PowerShell or run manually.
-bash scripts/indexing/setup_db_and_index.sh
-if ($LASTEXITCODE -ne 0) { Write-Host "$RED Failed at step 8 $NC"; exit 1 }
+# Step 7: Split pottery catalog
+Run-Step "Splitting pottery catalog..." "python scripts/dataset/pottery_03_split_catalog.py" 7 $TotalSteps
 
-Write-Host "$GREEN`t{u2714} Pipeline complete!$NC"
+# Step 8: Setup DB and index
+Write-Colored "[8/8] Setting up database and index..." "Yellow"
+# Try to find 'bash' in path, otherwise warn and skip
+$bashPath = Get-Command bash -ErrorAction SilentlyContinue
+if ($null -ne $bashPath) {
+    bash scripts/indexing/setup_db_and_index.sh
+    if ($LASTEXITCODE -ne 0) {
+        Write-Colored "Failed at step 8: Setting up database and index" "Red"
+        exit 1
+    }
+} else {
+    Write-Colored "Warning: bash is not installed. Please run scripts/indexing/setup_db_and_index.sh manually or in WSL." "Red"
+    exit 1
+}
 
-# indexing pottery catalog
-Write-Host "$YELLOW[7/8]$NC Initializing MongoDB..."
+Write-Colored "✔ Pipeline complete!" "Green"
+
+# Additional pottery steps (not in main step count)
+Write-Colored "Initializing MongoDB for pottery catalog..." "Yellow"
 python scripts/dataset/pottery_04_init_mongodb.py
-if ($LASTEXITCODE -ne 0) { Write-Host "$RED Failed initializing MongoDB $NC"; exit 1 }
+if ($LASTEXITCODE -ne 0) {
+    Write-Colored "Failed initializing MongoDB" "Red"
+    exit 1
+}
 
-Write-Host "$YELLOW[7/8]$NC Indexing pottery catalog..."
+Write-Colored "Indexing pottery catalog..." "Yellow"
 python scripts/dataset/pottery_05_index_models.py
-if ($LASTEXITCODE -ne 0) { Write-Host "$RED Failed indexing pottery catalog $NC"; exit 1 }
+if ($LASTEXITCODE -ne 0) {
+    Write-Colored "Failed indexing pottery catalog" "Red"
+    exit 1
+}
 
-# Write-Host "$YELLOW[7/8]$NC Evaluate retrieval..."
+# For optional evaluation, uncomment:
+# Write-Colored "Evaluating retrieval..." "Yellow"
 # python scripts/dataset/pottery_06_evaluate_retrieval.py
 
-Write-Host "$GREEN`t{u2714} Pipeline complete!$NC"
+Write-Colored "✔ All steps completed successfully!" "Green"
