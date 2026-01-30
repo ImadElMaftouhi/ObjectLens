@@ -37,7 +37,7 @@ else:
 
 # Serve 3D model files (Pottery dataset)
 # Example URL: /raw/3DModels/Amphora/Amphora_1.obj
-raw_dir = settings.get_raw_data_root()
+raw_dir = settings.get_3D_dataset_path()
 logger.info(f"Mounting 3D dataset directory: {raw_dir}")
 if raw_dir.exists():
     app.mount(
@@ -61,7 +61,7 @@ def health():
 @app.get("/health/dataset")
 def health_dataset():
     dataset_root = settings.get_imagenet_dataset_path()
-    raw_root = settings.get_raw_data_root()
+    raw_root = settings.get_3D_dataset_path()
     return {
         "2d_dataset_root": str(dataset_root),
         "2d_dataset_exists": dataset_root.exists(),

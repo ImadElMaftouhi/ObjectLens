@@ -130,8 +130,8 @@ class Settings(BaseSettings):
         print(f"[DEBUG] Resolved DATASET_ROOT: {path_str} -> {full_path}")
         return full_path
 
-    def get_raw_data_root(self) -> Path:
-        """Get resolved path to 3D dataset root."""
+    def get_3D_dataset_path(self) -> Path:
+        """Get resolved path to 3D dataset path."""
         path_str = self.RAW_DATA_ROOT
         # Normalize to handle Docker-style paths on Windows
         normalized = self._normalize_path(path_str)
