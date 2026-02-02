@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { detectObjects, searchTopK_2D } from "./api"
+import { API_BASE, detectObjects, searchTopK_2D } from "./api"
 import { cropToBlob } from "./utils/crop"
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000"
 
 function ImgB64({ b64, mime = "image/png", alt, style }) {
   if (!b64) return null
