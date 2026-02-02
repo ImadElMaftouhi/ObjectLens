@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { API_BASE, detectObjects, searchTopK_2D } from "./api"
 import { cropToBlob } from "./utils/crop"
@@ -77,6 +77,20 @@ export default function Pr2d() {
 
   // ✅ NEW: descriptor viz toggle
   const [showDescriptors, setShowDescriptors] = useState(true)
+
+  const imageUrlRef = useRef(null)
+  const cropsRef = useRef([])
+  imageUrlRef.current = imageUrl
+  cropsRef.current = crops
+
+  useEffect(() => {
+    return () => {
+      if (imageUrlRef.current) URL.revokeObjectURL(imageUrlRef.current)
+      ;(cropsRef.current || []).forEach((c) => {
+        if (c?.previewUrl) URL.revokeObjectURL(c.previewUrl)
+      })
+    }
+  }, [])
 
   const selected = useMemo(() => {
     if (selectedIndex === null) return null
