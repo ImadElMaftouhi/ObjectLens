@@ -91,7 +91,7 @@ docker-compose up -d mongo
 # Start backend (from project root)
 cd backend
 pip install -r requirements.txt
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+cd ..; uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 # Start frontend (in a new terminal)
 cd frontend
