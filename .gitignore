@@ -73,3 +73,6 @@ api/thumbnails/
 *.tmp
 *.temp
 .cache/
+
+# tests
+scripts/test/images/*

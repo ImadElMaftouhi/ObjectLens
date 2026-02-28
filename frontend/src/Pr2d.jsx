@@ -60,6 +60,198 @@ function SectionHeader({ title, subtitle, right }) {
   )
 }
 
+const styles = {
+  page: {
+    minHeight: "100vh",
+    background:
+      "radial-gradient(1200px 700px at 15% -10%, rgba(79,124,255,0.25), transparent 55%), #0b0f17",
+    color: "#eaeef7",
+    fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
+    padding: 24
+  },
+  container: { maxWidth: 1240, margin: "0 auto" },
+  header: {
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 16,
+    marginBottom: 18
+  },
+  titleWrap: { display: "flex", flexDirection: "column", gap: 6 },
+  title: { fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: 0.2 },
+  subtitle: { margin: 0, opacity: 0.8, fontSize: 13, lineHeight: 1.35 },
+  pill: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 12px",
+    borderRadius: 999,
+    border: "1px solid #243045",
+    background: "rgba(15,22,38,0.75)",
+    fontSize: 12,
+    opacity: 0.95,
+    backdropFilter: "blur(8px)"
+  },
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "1.05fr 0.95fr",
+    gap: 16
+  },
+  card: {
+    border: "1px solid rgba(31,42,61,0.9)",
+    background:
+      "linear-gradient(180deg, rgba(15,22,38,0.85) 0%, rgba(11,15,23,0.85) 100%)",
+    borderRadius: 18,
+    padding: 16,
+    boxShadow: "0 10px 28px rgba(0,0,0,0.35)",
+    backdropFilter: "blur(8px)"
+  },
+  cardTitle: { margin: 0, fontSize: 14, opacity: 0.92, fontWeight: 800 },
+  row: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
+  btnPrimary: {
+    borderRadius: 12,
+    padding: "10px 12px",
+    fontWeight: 800,
+    fontSize: 13,
+    border: "1px solid #4f7cff",
+    cursor: "pointer",
+    transition: "transform 0.05s ease, opacity 0.15s ease",
+    userSelect: "none",
+    background: "linear-gradient(180deg,#4f7cff 0%, #3b66f5 100%)",
+    color: "#061021"
+  },
+  btnGhost: {
+    borderRadius: 12,
+    padding: "10px 12px",
+    fontWeight: 800,
+    fontSize: 13,
+    border: "1px solid #243045",
+    cursor: "pointer",
+    transition: "transform 0.05s ease, opacity 0.15s ease",
+    userSelect: "none",
+    background: "transparent",
+    color: "#eaeef7"
+  },
+  btnDisabled: { opacity: 0.5, cursor: "not-allowed" },
+  input: {
+    borderRadius: 12,
+    border: "1px solid #243045",
+    background: "rgba(11,15,23,0.65)",
+    color: "#eaeef7",
+    padding: "10px 12px",
+    fontSize: 13,
+    outline: "none"
+  },
+  status: {
+    marginTop: 12,
+    padding: "10px 12px",
+    borderRadius: 12,
+    border: "1px solid #243045",
+    background: "rgba(11,15,23,0.65)",
+    fontSize: 13,
+    opacity: 0.95
+  },
+  imgFrame: {
+    marginTop: 12,
+    borderRadius: 16,
+    overflow: "hidden",
+    border: "1px solid #243045",
+    background: "rgba(5,8,18,0.85)"
+  },
+  mainImg: {
+    width: "100%",
+    maxHeight: 420,
+    objectFit: "contain",
+    display: "block"
+  },
+  sectionGap: { marginTop: 14 },
+  cropGrid: {
+    marginTop: 12,
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+    gap: 12
+  },
+  cropBtnSelected: {
+    textAlign: "left",
+    borderRadius: 16,
+    border: "1px solid #4f7cff",
+    background: "rgba(79,124,255,0.10)",
+    padding: 10,
+    cursor: "pointer",
+    transition: "transform 0.06s ease, border-color 0.15s ease"
+  },
+  cropBtnUnselected: {
+    textAlign: "left",
+    borderRadius: 16,
+    border: "1px solid #243045",
+    background: "rgba(11,15,23,0.65)",
+    padding: 10,
+    cursor: "pointer",
+    transition: "transform 0.06s ease, border-color 0.15s ease"
+  },
+  cropImg: {
+    width: "100%",
+    height: 120,
+    objectFit: "contain",
+    borderRadius: 12,
+    background: "#000",
+    border: "1px solid #1f2a3d"
+  },
+  label: { fontSize: 12, opacity: 0.82 },
+  strong: { fontSize: 13, fontWeight: 900 },
+  resultGrid: {
+    marginTop: 12,
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
+    gap: 12
+  },
+  resultCard: {
+    borderRadius: 16,
+    border: "1px solid #243045",
+    background: "rgba(11,15,23,0.65)",
+    padding: 10
+  },
+  resultImg: {
+    width: "100%",
+    height: 150,
+    objectFit: "contain",
+    borderRadius: 12,
+    background: "#000",
+    border: "1px solid #1f2a3d"
+  },
+  vizGrid: {
+    marginTop: 12,
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12
+  },
+  vizCard: {
+    borderRadius: 16,
+    border: "1px solid #243045",
+    background: "rgba(11,15,23,0.65)",
+    padding: 12,
+    overflow: "hidden"
+  },
+  vizImg: {
+    width: "100%",
+    height: 220,
+    objectFit: "contain",
+    borderRadius: 12,
+    border: "1px solid #1f2a3d",
+    background: "#000",
+    display: "block"
+  },
+  vizSmallImg: {
+    width: "100%",
+    height: 180,
+    objectFit: "contain",
+    borderRadius: 12,
+    border: "1px solid #1f2a3d",
+    background: "#000",
+    display: "block"
+  }
+}
+
 export default function Pr2d() {
   const navigate = useNavigate()
   const [file, setFile] = useState(null)
@@ -218,194 +410,6 @@ export default function Pr2d() {
   const qdSum = qd?.summaries || {}
   const tamura = qdSum?.texture?.tamura || null
 
-  const styles = {
-    page: {
-      minHeight: "100vh",
-      background:
-        "radial-gradient(1200px 700px at 15% -10%, rgba(79,124,255,0.25), transparent 55%), #0b0f17",
-      color: "#eaeef7",
-      fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
-      padding: 24
-    },
-    container: { maxWidth: 1240, margin: "0 auto" },
-    header: {
-      display: "flex",
-      alignItems: "flex-end",
-      justifyContent: "space-between",
-      gap: 16,
-      marginBottom: 18
-    },
-    titleWrap: { display: "flex", flexDirection: "column", gap: 6 },
-    title: { fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: 0.2 },
-    subtitle: { margin: 0, opacity: 0.8, fontSize: 13, lineHeight: 1.35 },
-    pill: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 8,
-      padding: "8px 12px",
-      borderRadius: 999,
-      border: "1px solid #243045",
-      background: "rgba(15,22,38,0.75)",
-      fontSize: 12,
-      opacity: 0.95,
-      backdropFilter: "blur(8px)"
-    },
-    grid: {
-      display: "grid",
-      gridTemplateColumns: "1.05fr 0.95fr",
-      gap: 16
-    },
-    card: {
-      border: "1px solid rgba(31,42,61,0.9)",
-      background:
-        "linear-gradient(180deg, rgba(15,22,38,0.85) 0%, rgba(11,15,23,0.85) 100%)",
-      borderRadius: 18,
-      padding: 16,
-      boxShadow: "0 10px 28px rgba(0,0,0,0.35)",
-      backdropFilter: "blur(8px)"
-    },
-    cardTitle: { margin: 0, fontSize: 14, opacity: 0.92, fontWeight: 800 },
-    row: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
-    btn: (variant = "primary") => {
-      const base = {
-        borderRadius: 12,
-        padding: "10px 12px",
-        fontWeight: 800,
-        fontSize: 13,
-        border: "1px solid transparent",
-        cursor: "pointer",
-        transition: "transform 0.05s ease, opacity 0.15s ease",
-        userSelect: "none"
-      }
-      if (variant === "primary")
-        return {
-          ...base,
-          background: "linear-gradient(180deg,#4f7cff 0%, #3b66f5 100%)",
-          borderColor: "#4f7cff",
-          color: "#061021"
-        }
-      if (variant === "ghost")
-        return {
-          ...base,
-          background: "transparent",
-          borderColor: "#243045",
-          color: "#eaeef7"
-        }
-      return base
-    },
-    btnDisabled: { opacity: 0.5, cursor: "not-allowed" },
-    input: {
-      borderRadius: 12,
-      border: "1px solid #243045",
-      background: "rgba(11,15,23,0.65)",
-      color: "#eaeef7",
-      padding: "10px 12px",
-      fontSize: 13,
-      outline: "none"
-    },
-    status: {
-      marginTop: 12,
-      padding: "10px 12px",
-      borderRadius: 12,
-      border: "1px solid #243045",
-      background: "rgba(11,15,23,0.65)",
-      fontSize: 13,
-      opacity: 0.95
-    },
-    imgFrame: {
-      marginTop: 12,
-      borderRadius: 16,
-      overflow: "hidden",
-      border: "1px solid #243045",
-      background: "rgba(5,8,18,0.85)"
-    },
-    mainImg: {
-      width: "100%",
-      maxHeight: 420,
-      objectFit: "contain",
-      display: "block"
-    },
-    sectionGap: { marginTop: 14 },
-    cropGrid: {
-      marginTop: 12,
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-      gap: 12
-    },
-    cropBtn: (isSelected) => ({
-      textAlign: "left",
-      borderRadius: 16,
-      border: isSelected ? "1px solid #4f7cff" : "1px solid #243045",
-      background: isSelected ? "rgba(79,124,255,0.10)" : "rgba(11,15,23,0.65)",
-      padding: 10,
-      cursor: "pointer",
-      transition: "transform 0.06s ease, border-color 0.15s ease"
-    }),
-    cropImg: {
-      width: "100%",
-      height: 120,
-      objectFit: "contain",
-      borderRadius: 12,
-      background: "#000",
-      border: "1px solid #1f2a3d"
-    },
-    label: { fontSize: 12, opacity: 0.82 },
-    strong: { fontSize: 13, fontWeight: 900 },
-    resultGrid: {
-      marginTop: 12,
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
-      gap: 12
-    },
-    resultCard: {
-      borderRadius: 16,
-      border: "1px solid #243045",
-      background: "rgba(11,15,23,0.65)",
-      padding: 10
-    },
-    resultImg: {
-      width: "100%",
-      height: 150,
-      objectFit: "contain",
-      borderRadius: 12,
-      background: "#000",
-      border: "1px solid #1f2a3d"
-    },
-
-    // Descriptors UI
-    vizGrid: {
-      marginTop: 12,
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 12
-    },
-    vizCard: {
-      borderRadius: 16,
-      border: "1px solid #243045",
-      background: "rgba(11,15,23,0.65)",
-      padding: 12,
-      overflow: "hidden"
-    },
-    vizImg: {
-      width: "100%",
-      height: 220,
-      objectFit: "contain",
-      borderRadius: 12,
-      border: "1px solid #1f2a3d",
-      background: "#000",
-      display: "block"
-    },
-    vizSmallImg: {
-      width: "100%",
-      height: 180,
-      objectFit: "contain",
-      borderRadius: 12,
-      border: "1px solid #1f2a3d",
-      background: "#000",
-      display: "block"
-    }
-  }
-
   return (
     <div style={styles.page}>
       <div style={styles.container}>
@@ -463,7 +467,7 @@ export default function Pr2d() {
                 onClick={runDetect}
                 disabled={!file || loading}
                 style={{
-                  ...styles.btn("primary"),
+                  ...styles.btnPrimary,
                   ...(!file || loading ? styles.btnDisabled : null)
                 }}
               >
@@ -474,7 +478,7 @@ export default function Pr2d() {
                 onClick={resetAll}
                 disabled={loading}
                 style={{
-                  ...styles.btn("ghost"),
+                  ...styles.btnGhost,
                   ...(loading ? styles.btnDisabled : null)
                 }}
               >
@@ -553,7 +557,7 @@ export default function Pr2d() {
                 onClick={runTopK}
                 disabled={!selected || loading}
                 style={{
-                  ...styles.btn("primary"),
+                  ...styles.btnPrimary,
                   ...(!selected || loading ? styles.btnDisabled : null)
                 }}
               >
@@ -649,7 +653,7 @@ export default function Pr2d() {
                       <button
                         key={c.det.id}
                         onClick={() => setSelectedIndex(idx)}
-                        style={styles.cropBtn(isSel)}
+                        style={isSel ? styles.cropBtnSelected : styles.cropBtnUnselected}
                         title={`Select ${c.det.class_name} (id=${c.det.id})`}
                       >
                         <img
