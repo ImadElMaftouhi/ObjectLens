@@ -1,0 +1,1104 @@
+\documentclass[11pt,a4paper,oneside]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{natbib}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{verbatim}
+\usepackage{titlesec}
+\usepackage{etoolbox}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+\geometry{
+  top=0.7in,
+  bottom=0.7in,
+  left=1in,
+  right=1in
+}
+\titleformat{\chapter}
+  {\normalfont\huge\bfseries}
+  {Chapter \thechapter\ :}
+  {0.5em}
+  {}
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\bfseries}
+  {\thesubsubsection}
+  {0.5em}
+  {}
+\titlespacing*{\chapter}
+  {0pt}
+  {1.5em}
+  {1em}
+\hypersetup{pdfborder=0 0 0}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  keywordstyle=\color{blue},
+  commentstyle=\color{green!60!black},
+  stringstyle=\color{red}
+}
+% Prevent chapters from forcing a new page
+%\makeatletter
+%\patchcmd{\chapter}{\clearpage}{\par}{}{}
+%\makeatother
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+
+{\LARGE\bfseries Système d’indexation et de recherche par le contenu dans une base d’exemples de modèles 3D \\ (View Based Similarity)\par}
+
+\vfill
+
+{\large Akarrouch Mohamed \quad Imad El Maftouhi \quad Mossab Benamar\par}
+
+\vfill
+
+{\large MST Intelligence Artificielle et Science des Données \\ M232 - Multimedia Mining \& indexing \\ Pr. M'hamed Ait Kbir\par}
+
+\vfill
+
+Faculté des Sciences et Techniques de Tanger \\
+Département Informatique \\
+Année universitaire 2025--2026
+
+\vfill
+
+{\large Janvier 2026 \par}
+
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Introduction}
+
+\section{Contexte : explosion des modèles 3D et nécessité de la recherche par le contenu}
+
+Les progrès rapides des techniques de modélisation, de numérisation et de visualisation tridimensionnelle ont conduit à une croissance significative du nombre de modèles 3D disponibles sur Internet et dans des bases de données spécialisées. Ces modèles sont aujourd’hui largement utilisés dans des domaines variés tels que la conception assistée par ordinateur, le patrimoine culturel, la robotique, l’imagerie médicale ou encore les applications de réalité virtuelle.
+
+Face à cette augmentation massive des données tridimensionnelles, les méthodes traditionnelles de recherche fondées sur des annotations textuelles montrent rapidement leurs limites. Les descriptions associées aux modèles sont souvent incomplètes, imprécises ou dépendantes du contexte linguistique et culturel, ce qui rend leur exploitation peu fiable pour une recherche efficace. En conséquence, la recherche de modèles 3D ne peut reposer uniquement sur des métadonnées textuelles.
+
+La recherche de formes 3D par le contenu (\textit{Content-Based 3D Shape Retrieval}) constitue une réponse directe à cette problématique. Elle repose sur l’analyse automatique des propriétés géométriques et visuelles des modèles afin de mesurer leur similarité intrinsèque. Cette approche permet d’effectuer des requêtes indépendantes du langage et plus proches de la perception humaine, en comparant directement les formes plutôt que leurs descriptions textuelles.
+
+\section{Objectif du mini-projet}
+
+L’objectif de ce mini-projet est d’implémenter un système de base d’indexation et de recherche de modèles 3D par le contenu, à partir de fichiers au format \texttt{.obj}. Le système repose sur l’extraction de descripteurs de forme permettant de représenter de manière compacte et discriminante la géométrie des modèles, ainsi que sur la définition de mesures de similarité adaptées pour comparer ces descripteurs.
+
+Dans le cadre de ce travail, une extension de l’application Web développée lors du premier mini-projet est réalisée afin d’intégrer un espace dédié à la recherche par similarité. L’approche retenue appartient à la famille des méthodes de similarité basée sur les vues, correspondant aux groupes G11 et G15 de la classification proposée. La base de données utilisée pour l’évaluation expérimentale est issue du benchmark disponible à l’adresse suivante : \texttt{http://www.ipet.gr/~akoutsou/benchmark/}.
+
+Le rapport associé au projet inclut une phase d’analyse expérimentale visant à évaluer les performances du système implémenté, notamment à travers le taux de réussite de la recherche et la pertinence des résultats retournés.
+
+\section{Similarité basée sur les vues}
+
+La similarité basée sur les vues repose sur l’hypothèse selon laquelle deux modèles 3D peuvent être considérés comme similaires s’ils présentent une apparence visuelle comparable lorsqu’ils sont observés sous différents points de vue. Cette approche s’inspire directement des mécanismes de reconnaissance visuelle humaine, où l’identification d’un objet s’effectue principalement à partir de projections bidimensionnelles plutôt que d’une analyse volumétrique explicite.
+
+Les méthodes view-based consistent à projeter chaque modèle 3D selon un ensemble de directions prédéfinies afin d’obtenir des vues 2D, telles que des silhouettes ou des images de profondeur. Ces vues sont ensuite décrites à l’aide de descripteurs 2D issus du traitement d’images, et la similarité entre deux modèles est évaluée par l’appariement de leurs ensembles de vues respectifs.
+
+Plusieurs travaux ont démontré l’efficacité de ce paradigme. Par exemple, Löffler propose une interaction utilisateur fondée sur des requêtes 2D, tandis que Chen et al., avec le descripteur LightField, montrent que les méthodes basées sur les vues offrent un pouvoir discriminant élevé par rapport à d’autres familles de descripteurs. Toutefois, ces approches impliquent généralement un coût de prétraitement et de comparaison important, lié au nombre de vues générées et à la complexité des mécanismes d’appariement.
+
+Malgré ces limitations, la similarité basée sur les vues demeure l’un des paradigmes les plus performants pour la recherche de formes 3D par le contenu, et constitue le cadre méthodologique retenu dans ce mini-projet.
+
+
+\begin{comment}
+\section{Structure du rapport}
+
+- Introduction et contexte
+
+- Synthèse article, focus descripteurs vues
+
+- Recherche bibliographique complémentaire
+
+- Implémentation : descripteurs, indexation, recherche
+
+- Simulation et résultats : taux réussite
+
+- Conclusion et limitations
+\end{comment}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Synthèse de l’article « A survey of content based 3D shape retrieval methods »}
+
+\section{Aperçu général de l’article (abstract, introduction et problématique)}
+
+L’article «\textbf{A survey of content based 3D shape retrieval methods}» propose une étude approfondie et structurée des méthodes de recherche de modèles 3D fondées sur le contenu, dans un contexte marqué par la croissance rapide des bases de données de formes tridimensionnelles. Cette évolution est directement liée aux progrès des techniques de modélisation, de numérisation et de visualisation 3D, ainsi qu’à la disponibilité massive de modèles sur Internet et dans des bases de données spécialisées, notamment dans les domaines du patrimoine culturel, de la conception assistée par ordinateur (CAO) et de la biologie structurale.
+
+Dans l’abstract, les auteurs mettent en évidence la difficulté fondamentale de la recherche de modèles 3D par des approches textuelles classiques. Les annotations manuelles sont souvent incomplètes, ambiguës et fortement dépendantes du contexte culturel et linguistique. En réponse à ces limites, les méthodes de recherche par le contenu exploitent directement les propriétés géométriques et topologiques des formes 3D afin de mesurer la similarité entre objets. L’article se positionne ainsi comme une synthèse critique des approches existantes, en tenant compte aussi bien des modèles surfaciques (maillages polygonaux, souvent non fermés et imparfaits) que des modèles volumiques (modèles solides, voxels), dont les contraintes géométriques sont plus strictes.
+
+L’introduction souligne que, contrairement aux formes 2D, les formes 3D posent des défis spécifiques : absence de paramétrisation de contour directe, complexité topologique, sensibilité à la pose (translation, rotation, échelle) et diversité des représentations possibles. Les auteurs rappellent également l’émergence de moteurs de recherche 3D expérimentaux et de benchmarks de référence, tels que le \textbf{Princeton Shape Benchmark}, qui ont permis d’évaluer de manière comparative les performances des méthodes proposées dans la littérature.
+
+La problématique centrale de l’article consiste à analyser et comparer les méthodes de recherche de formes 3D selon un ensemble de critères clairement définis. Parmi ces critères figurent la nature de la représentation de la forme, les propriétés mathématiques des mesures de dissimilarité, l’efficacité computationnelle, le pouvoir discriminant, la capacité à effectuer des correspondances partielles, la robustesse face au bruit et aux défauts de modélisation, ainsi que la nécessité ou non d’une normalisation de la pose. Contrairement à d’autres travaux de synthèse, cet article ne se limite pas à une classification des méthodes, mais vise à évaluer de manière critique leurs avantages, leurs limites et leur applicabilité pratique dans des systèmes réels de recherche par le contenu.
+
+En résumé, cette première partie de l’article pose le cadre conceptuel et méthodologique de la recherche de formes 3D par le contenu, justifie la nécessité de telles approches face aux limites des méthodes textuelles, et introduit une grille d’analyse rigoureuse qui servira de base à l’étude comparative détaillée des méthodes présentée dans les sections suivantes.
+
+\section{Cadre général de la recherche 3D par le contenu}
+
+La section 2 de l’article établit le cadre conceptuel et méthodologique général de la recherche de formes 3D par le contenu. Les auteurs y identifient les principaux éléments constitutifs d’un système de recherche 3D, ainsi que les critères d’évaluation permettant de juger la pertinence et l’efficacité des différentes approches proposées dans la littérature.
+
+Tout d’abord, un système typique de recherche de formes 3D par le contenu repose sur une architecture en deux phases distinctes : une phase hors ligne et une phase en ligne. Lors de la phase hors ligne, chaque modèle 3D de la base de données est analysé afin d’extraire un descripteur de forme, c’est-à-dire une représentation compacte et discriminante de sa géométrie. Ces descripteurs sont ensuite organisés dans une structure d’indexation destinée à accélérer le processus de recherche. La phase en ligne correspond à l’interrogation du système : le descripteur de l’objet requête est calculé, puis comparé à ceux stockés dans la base à l’aide d’une mesure de dissimilarité afin de retourner les modèles les plus similaires.
+
+Les auteurs distinguent ensuite plusieurs modes de formulation de requête. La recherche peut être effectuée par sélection itérative d’objets à partir des résultats obtenus, par requête directe à l’aide d’un descripteur, ou encore par requête par l’exemple, où l’utilisateur fournit un modèle 3D existant, un modèle construit manuellement ou des esquisses 2D représentant des vues de l’objet recherché. Ces différents modes influencent fortement la conception des descripteurs et des mécanismes de comparaison.
+
+Un aspect fondamental du cadre général concerne la représentation des formes 3D. L’article souligne la grande hétérogénéité des modèles disponibles, notamment les maillages surfaciques issus de formats orientés visualisation, souvent non fermés et topologiquement imparfaits, et les modèles volumiques, qui définissent explicitement un volume. Le choix de la représentation conditionne directement les méthodes de descripteurs applicables, certaines nécessitant des modèles étanches alors que d’autres tolèrent des « polygon soups ».
+
+La mesure de similarité constitue un autre pilier du cadre général. Les auteurs introduisent formellement la notion de mesure de dissimilarité, assimilée à une distance entre descripteurs. Ils discutent ses propriétés mathématiques essentielles, telles que l’identité, la positivité, la symétrie, l’inégalité triangulaire et l’invariance par transformation géométrique. Selon les applications, toutes ces propriétés ne sont pas nécessairement requises, mais leur présence ou absence a un impact direct sur l’efficacité de l’indexation et sur la pertinence des résultats.
+
+La question de l’efficacité est également centrale. Pour des bases de données de grande taille, une comparaison séquentielle de tous les modèles est irréaliste. Le calcul des descripteurs doit être suffisamment rapide pour permettre des requêtes interactives, et les structures d’indexation doivent exploiter, lorsque possible, les propriétés métriques des mesures de dissimilarité afin de réduire le nombre de comparaisons nécessaires.
+
+Les auteurs abordent ensuite le pouvoir discriminant des descripteurs, qui correspond à leur capacité à distinguer des formes similaires de formes différentes. Cette notion est intrinsèquement liée à la subjectivité de la perception humaine et aux objectifs de l’application considérée. Un descripteur peut être pertinent pour des formes globalement similaires, mais inadapté pour distinguer des détails fins, ou inversement.
+
+La prise en compte de la correspondance partielle est présentée comme une fonctionnalité avancée, particulièrement utile lorsque les modèles sont incomplets, bruités ou lorsqu’il s’agit de retrouver un objet présent partiellement dans une scène 3D plus complexe. Cependant, cette capacité complique considérablement la définition des descripteurs et des mesures de similarité.
+
+Enfin, la robustesse et la normalisation de la pose sont des aspects déterminants du cadre général. Les descripteurs doivent être peu sensibles au bruit, aux petites déformations et aux variations de niveau de détail. De plus, en l’absence d’informations a priori, les modèles 3D peuvent avoir des positions, orientations et échelles arbitraires. Les auteurs discutent ainsi des techniques de normalisation, notamment celles basées sur l’analyse en composantes principales (PCA), tout en soulignant leurs limites, en particulier pour les formes symétriques.
+
+En conclusion, la section 2 fournit une base conceptuelle rigoureuse pour l’étude de la recherche de formes 3D par le contenu. Elle définit les composantes essentielles d’un système de recherche 3D et introduit les critères d’analyse qui serviront de référence pour l’évaluation comparative des différentes méthodes présentées dans le reste de l’article.
+
+\section{Vue détaillée sur la section 3.3.1 : Similarité basée sur les vues}
+
+\subsection{Connaissances préalables nécessaires}
+
+\subsubsection{Système de coordonnées canonique et normalisation de pose}
+
+La procédure de \textbf{normalisation de pose}, telle que décrite dans les sources, est une étape technique fondamentale visant à standardiser les propriétés spatiales des modèles 3D, à savoir leur échelle, leur orientation et leur position, afin de permettre une comparaison cohérente via des mesures de dissimilarité. En l'absence de cette normalisation, les modèles résident dans des espaces de coordonnées arbitraires, ce qui rend l'extraction de descripteurs invariants inefficace. Pour les composantes analytiques de ce processus, nous notons :
+
+\begin{itemize}
+    \item \textbf{Translation et Centre de Masse}:  La normalisation débute par le calcul du \textbf{centre de masse}, défini comme la moyenne des points de surface du modèle. Pour normaliser la position, ce centre de masse est systématiquement translaté vers l'origine du système de coordonnées.
+
+    \item \textbf{Normalisation de l'Échelle} : Afin de rendre le descripteur indépendant de la taille de l'objet, la distance moyenne des points de surface par rapport au centre de masse est redimensionnée pour atteindre une valeur constante. Les sources précisent que l'utilisation de la "boîte englobante" (bounding box) pour cette étape est évitée car elle présente une sensibilité accrue aux points aberrants (outliers).
+    
+    \item \textbf{Système de Coordonnées Canonique et Rotation}: L'alignement de l'orientation s'effectue généralement par l'\textbf{Analyse en Composantes Principales (PCA)}. Cette méthode mathématique aligne les axes principaux du modèle sur les axes $x$, $y$ et $z$ d'un \textbf{système de coordonnées canonique} par une transformation affine. Le processus consiste d'abord à effectuer une rotation de sorte que la variance maximale des points transformés se situe le long de l'axe $x$. Ensuite, une rotation autour de l'axe $x$ est opérée pour que l'étalement maximal dans le plan $yz$ soit aligné avec l'axe $y$.
+    
+    \item \textbf{Évolutions Méthodologiques}: Pour pallier les limites de la PCA classique, notamment sa sensibilité à la résolution des triangles, la PCA continue a été introduite. Cette variante garantit que tous les points de la surface du maillage sont traités avec une importance égale lors du calcul de la transformation vers le système canonique.
+    
+    \item \textbf{Ambiguïtés Structurelles}: L'algorithme PCA présente des limites intrinsèques, notamment une ambiguïté de direction des axes, pouvant générer quatre configurations valides pour un même alignement. De plus, les distributions de masse presque symétriques (comme les formes cylindriques ou sphériques) peuvent provoquer une instabilité ou une inversion des axes principaux, complexifiant ainsi la normalisation rigoureuse de la pose.
+\end{itemize}
+
+\subsubsection{Vues 2D (silhouette, depth buffer, projection orthographique)}
+
+L'approche de la similarité basée sur les vues repose sur le paradigme selon lequel deux modèles 3D sont considérés comme similaires s'ils présentent une apparence visuelle analogue sous tous les angles de vue. Cette méthode s'inspire directement des modèles de reconnaissance d'objets chez l'être humain et permet notamment l'utilisation d'interfaces de requête par croquis 2D. Les concepts fondamentaux de cette approche incluent :
+
+\begin{itemize}
+    \item Silhouettes et contours : Cette technique extrait l'enveloppe externe du modèle. Par exemple, le descripteur Lightfield utilise dix silhouettes extraites de points de vue distribués uniformément sur une sphère de visualisation. Chaque silhouette est ensuite encodée par des moments de Zernike et des descripteurs de Fourier pour quantifier la forme. Une minimisation de la dissimilarité est effectuée en faisant pivoter virtuellement les sphères de visualisation pour s'affranchir de l'orientation initiale du modèle.
+    \item Tampons de profondeur (Depth Buffers) : Contrairement à une simple silhouette, le depth buffer capture la distance entre la caméra et la surface de l'objet pour chaque pixel, intégrant ainsi une information de relief 2D. Certaines méthodes exploitent un ensemble de 42 images de profondeur pour représenter un modèle, utilisant des descripteurs de Fourier invariants en rotation pour chaque image.
+    \item Projections orthographiques et axes canoniques : Pour simplifier le processus, certains descripteurs s'appuient sur des projections effectuées selon des directions fixes, souvent perpendiculaires aux axes x, y et z d'un système de coordonnées canonique. Par exemple, Vranić propose l'utilisation de silhouettes ou d'images de profondeur basées sur six vues perpendiculaires aux axes principaux, ce qui nécessite une étape préalable de normalisation de pose (généralement via la PCA) pour garantir que les projections soient comparables.
+    \item Analyse comparative et performance : Sur le plan académique, les méthodes basées sur les vues sont reconnues pour leur grande capacité de discrimination, surpassant souvent les méthodes basées sur les harmoniques sphériques en termes de précision. Cependant, cette efficacité se traduit par un coût computationnel élevé et des besoins de stockage accrus, car le système doit comparer de multiples combinaisons d'images pour chaque requête. Bien que certaines techniques (comme le Lightfield) soient intrinsèquement indépendantes de la rotation, d'autres dépendent strictement de la qualité de l'alignement initial du modèle dans son espace de coordonnées.
+\end{itemize}
+
+\subsubsection{Descripteurs 2D (descripteurs de Fourier, moments de Zernike)}
+
+Les descripteurs 2D occupent une place importante dans les méthodes de recherche de formes 3D par le contenu, notamment dans les approches fondées sur les vues. Le principe général consiste à projeter un objet 3D selon plusieurs points de vue afin d'obtenir un ensemble d'images 2D, puis à décrire chacune de ces projections à l'aide de descripteurs 2D classiques issus du traitement d'images.
+
+\textbf{Descripteurs de Fourier.} Les descripteurs de Fourier se basent sur l'analyse fréquentielle de la forme projetée. Après extraction du contour ou de la silhouette, celui-ci est représenté comme un signal complexe $z(t) = x(t) + iy(t)$, où $(x(t), y(t))$ sont les coordonnées du contour paramétrées par $t \in [0, 1]$. La transformée de Fourier discrète est alors appliquée :
+
+$$
+F_k = \frac{1}{N} \sum_{n=0}^{N-1} z(n) e^{-i2\pi kn/N}
+$$
+
+Les coefficients de Fourier $F_k$ constituent une description compacte de la forme. L'invariance à la translation est obtenue en ignorant $F_0$, tandis que l'invariance à la rotation et à l'échelle peut être obtenue en normalisant les coefficients : $|F_k| / |F_1|$. Ces descripteurs capturent les propriétés globales de la forme mais décrivent moins précisément les détails locaux.
+
+\textbf{Moments de Zernike.} Les moments de Zernike reposent sur une base de polynômes orthogonaux $V_{nm}(\rho, \theta)$ définis sur le disque unité $\rho \leq 1$ :
+
+$$
+V_{nm}(\rho, \theta) = R_{nm}(\rho) e^{im\theta}
+$$
+
+où $R_{nm}(\rho)$ est un polynôme radial d'ordre $n$ et de répétition azimutale $m$. Le moment de Zernike d'ordre $n$ et de répétition $m$ pour une image $f(x,y)$ est défini par :
+
+$$
+Z_{nm} = \frac{n+1}{\pi} \int_0^{2\pi} \int_0^1 f(\rho\cos\theta, \rho\sin\theta) V_{nm}^*(\rho, \theta) \rho \, d\rho \, d\theta
+$$
+
+où $V_{nm}^*$ désigne le complexe conjugué. En pratique, cette intégrale est calculée par sommation discrète sur les pixels de l'image. Les magnitudes $|Z_{nm}|$ sont naturellement invariantes à la rotation, offrant ainsi une description stable et discriminante des silhouettes. \\
+
+\textbf{Application à la recherche 3D.} Dans le contexte de la recherche 3D par le contenu, ces descripteurs sont appliqués à un ensemble de vues $\{V_1, \ldots, V_K\}$ obtenues depuis $K$ directions prédéfinies. Chaque vue $V_i$ est caractérisée par son vecteur de descripteurs $\mathbf{d}_i$. La similarité entre deux modèles 3D $M_A$ et $M_B$ est définie comme :
+
+$$
+D(M_A, M_B) = \min_{\theta} \sum_{i=1}^K \min_j \|\mathbf{d}_i^A - \mathbf{d}_j^B(\theta)\|
+$$
+
+où $\theta$ représente une rotation éventuelle de l'ensemble des vues de $M_B$, permettant l'appariement optimal des vues.
+
+En résumé, les descripteurs de Fourier et les moments de Zernike offrent un compromis intéressant entre efficacité computationnelle, invariance géométrique et pouvoir discriminant, ce qui explique leur adoption fréquente dans les systèmes de recherche de formes 3D par le contenu.
+
+\subsubsection{Mesure de dissimilarité et alignement par rotation}
+
+La mesure de dissimilarité vise à quantifier l'écart entre deux objets 3D à partir de leurs descripteurs. Soit deux modèles 3D $M_A$ et $M_B$ représentés par leurs descripteurs $\mathbf{d}_A$ et $\mathbf{d}_B$. La dissimilarité de base est définie par une distance dans l'espace des descripteurs, typiquement la distance euclidienne :
+
+$$D(\mathbf{d}_A, \mathbf{d}_B) = \|\mathbf{d}_A - \mathbf{d}_B\|_2$$
+
+Dans les approches basées sur les vues ou sur des descripteurs dépendants de l'orientation, un alignement par rotation est souvent nécessaire. Cet alignement peut être réalisé soit explicitement, par une normalisation préalable de la pose via l'analyse en composantes principales (PCA), soit implicitement, en recherchant la rotation optimale. Pour un groupe de rotations $\mathcal{R}$ (par exemple $SO(3)$ pour les rotations 3D), la dissimilarité invariante par rotation s'écrit :
+
+$$D_{\text{rot}}(M_A, M_B) = \min_{R \in \mathcal{R}} D(\mathbf{d}_A, R(\mathbf{d}_B))$$
+
+où $R(\mathbf{d}_B)$ désigne le descripteur de $M_B$ après application de la rotation $R$. Dans le cas des approches multi-vues avec $K$ vues par modèle, la dissimilarité prend souvent la forme :
+
+$$D_{\text{multi-vues}}(M_A, M_B) = \min_{R} \sum_{i=1}^K \min_{j=1}^K \|\mathbf{d}_i^A - \mathbf{d}_j^B(R)\|$$
+
+Cette formulation assure une invariance à l'orientation au prix d'un surcoût computationnel proportionnel au nombre de rotations testées.
+
+\subsubsection{Shock graph, axe médian et classification des shocks}
+
+Le shock graph est une représentation structurelle dérivée de l'axe médian (ou squelette) d'une forme. L'axe médian $\mathcal{M}$ est défini comme l'ensemble des centres des cercles maximaux inscrits dans la silhouette $\Omega$ :
+
+$$\mathcal{M} = \{p \in \Omega \mid \exists r > 0, B(p, r) \subseteq \Omega \text{ et } \partial B(p, r) \cap \partial\Omega \text{ contient au moins 2 points}\}$$
+
+où $B(p, r)$ désigne la boule de centre $p$ et de rayon $r$. Chaque point $p \in \mathcal{M}$ est associé à un rayon $r(p)$ correspondant au rayon du cercle maximal en ce point.
+
+Le shock graph $G = (V, E)$ est un graphe où les nœuds $V$ représentent les segments (branches) de l'axe médian et les arêtes $E$ encodent les relations d'adjacence entre ces segments. Les segments, appelés shocks, sont classifiés selon leur type géométrique :
+
+\begin{enumerate}
+    \item \textbf{Shock de type 1} : généré par deux segments de contour convexes (extrémités)
+    \item \textbf{Shock de type 2} : généré par un segment convexe et un segment concave
+    \item \textbf{Shock de type 3} : généré par deux segments concaves (jonctions)
+    \item \textbf{Shock de type 4} : généré par un segment lisse (symétries)
+\end{enumerate}
+
+Chaque nœud $v \in V$ est étiqueté par son type de shock $s(v) \in \{1, 2, 3, 4\}$ et par des attributs géométriques tels que la longueur du segment et la distribution des rayons $r(p)$ le long du segment. La similarité entre deux shock graphs $G_A$ et $G_B$ est évaluée par une distance d'édition de graphes ou par un appariement de sous-graphes.
+
+\subsubsection{Échantillonnage de vues (sphère de vue, vues canoniques, vues caractéristiques)}
+
+L'échantillonnage de vues consiste à sélectionner un ensemble de directions $\{\mathbf{v}_1, \ldots, \mathbf{v}_K\}$ sur la sphère unité $\mathbb{S}^2$ pour générer des projections 2D informatives. 
+
+\textbf{Sphère de vue}. Une approche courante repose sur une répartition uniforme des directions sur $\mathbb{S}^2$. Par exemple, une subdivision icosaédrique génère $K = 20 \times 4^n$ directions après $n$ subdivisions. Chaque direction $\mathbf{v}_i \in \mathbb{S}^2$ définit une projection orthographique $\pi_i : \mathbb{R}^3 \to \mathbb{R}^2$.
+
+\textbf{Vues canoniques}. Les vues canoniques sont alignées selon les axes principaux $\{\mathbf{e}_1, \mathbf{e}_2, \mathbf{e}_3\}$ obtenus par PCA. On considère typiquement $K = 6$ vues correspondant à $\pm\mathbf{e}_1, \pm\mathbf{e}_2, \pm\mathbf{e}_3$, ou $K = 3$ vues orthogonales positives.
+
+\textbf{Vues caractéristiques}. Les vues caractéristiques sont sélectionnées pour maximiser un critère d'information, tel que l'entropie de la silhouette ou la stabilité du contour. Soit $I(\mathbf{v})$ une mesure d'information pour la vue selon $\mathbf{v}$, les vues caractéristiques sont :
+
+$$\{\mathbf{v}_1, \ldots, \mathbf{v}_K\} = \arg\max_{\{\mathbf{v}_i\}} \sum_{i=1}^K I(\mathbf{v}_i) - \lambda \sum_{i \neq j} \text{sim}(\mathbf{v}_i, \mathbf{v}_j)$$
+
+où $\lambda$ contrôle le compromis entre information et diversité des vues.
+
+\subsubsection{Clustering de vues}
+
+Le clustering de vues vise à réduire la redondance entre les $N$ projections 2D initiales en regroupant les vues similaires. Soit $\{\mathbf{d}_1, \ldots, \mathbf{d}_N\}$ les descripteurs associés aux vues. Un algorithme de clustering (k-means, clustering hiérarchique) partitionne cet ensemble en $K < N$ clusters $C_1, \ldots, C_K$ :
+
+$$C_k = \{i \mid \|\mathbf{d}_i - \boldsymbol{\mu}_k\| \leq \|\mathbf{d}_i - \boldsymbol{\mu}_j\|, \forall j \neq k\}$$
+
+où $\boldsymbol{\mu}_k$ est le centroïde du cluster $C_k$. Chaque cluster est représenté par une vue prototype $\mathbf{d}_k^*$, définie soit comme le centroïde :
+
+$$\mathbf{d}_k^* = \frac{1}{|C_k|} \sum_{i \in C_k} \mathbf{d}_i$$
+
+soit comme le médoïde (élément minimisant la distance moyenne intra-cluster) :
+
+$$\mathbf{d}_k^* = \arg\min_{\mathbf{d}_i \in C_k} \sum_{j \in C_k} \|\mathbf{d}_i - \mathbf{d}_j\|$$
+
+Cette réduction de $N$ à $K$ descripteurs améliore l'efficacité du système tout en préservant le pouvoir discriminant.
+
+\subsection{Description détaillée de chaque méthode view-based}
+
+\subsubsection{~\cite{loffler74}}
+
+L’approche proposée par Löffler s’inscrit dans le cadre des méthodes de recherche de formes 3D basées sur les vues, en privilégiant une interaction utilisateur fondée sur des requêtes 2D. L’hypothèse centrale est qu’un objet 3D peut être caractérisé de manière satisfaisante par un ensemble fini de projections 2D, et que la similarité entre deux objets 3D peut être estimée à partir de la similarité entre leurs vues respectives.
+
+Dans la phase de prétraitement, chaque modèle 3D de la base est projeté selon un ensemble de directions de vue prédéfinies. Ces projections sont généralement orthographiques afin d’éviter les distorsions liées à la perspective. Chaque projection est ensuite convertie en une image binaire ou une image de contours, notée $I_i$, représentant la silhouette de l’objet vue depuis la direction $i$. L’ensemble des silhouettes ${I_1, I_2, \dots, I_N}$ constitue la représentation visuelle du modèle 3D.
+
+Pour décrire chaque silhouette, Löffler utilise des descripteurs 2D adaptés à la comparaison de formes, notamment des descripteurs basés sur les contours. Une silhouette est assimilée à une fonction plane $f(x,y)$ définie sur une grille discrète, et sa description repose sur l’extraction de caractéristiques invariantes. La similarité entre deux silhouettes $I$ et $J$ est alors mesurée par une distance $d_{2D}(I,J)$, souvent de type euclidien dans l’espace des descripteurs :
+
+$$
+d_{2D}(I,J) = \lVert \mathbf{d}(I) - \mathbf{d}(J) \rVert_2,
+$$
+
+où $\mathbf{d}(I)$ et $\mathbf{d}(J)$ désignent les vecteurs de caractéristiques associés aux silhouettes.
+
+Lors de la phase de requête, l’utilisateur fournit soit une image 2D, soit un croquis représentant une vue de l’objet recherché. Cette requête est décrite par le même type de descripteur 2D que ceux utilisés pour les silhouettes de la base. La recherche consiste alors à comparer la requête à l’ensemble des vues stockées. Pour un modèle 3D donné, la dissimilarité globale par rapport à la requête est définie comme la distance minimale entre la requête et l’une de ses vues :
+
+$$
+D(M, Q) = \min_{i \in {1,\dots,N}} d_{2D}(I_i, Q)
+$$
+
+où $M$ désigne un modèle 3D de la base et $Q$ la vue requête.
+
+Cette définition traduit l’idée que deux objets 3D sont similaires si au moins une vue de l’un correspond visuellement à la vue fournie en requête. Le problème de l’alignement par rotation est ainsi traité implicitement, puisqu’il n’est pas nécessaire de normaliser la pose du modèle 3D : la recherche du minimum sur l’ensemble des vues joue le rôle d’une optimisation discrète sur l’orientation.
+
+D’un point de vue algorithmique, cette approche présente toutefois un coût non négligeable, car la comparaison nécessite d’évaluer la distance entre la requête et un grand nombre de vues. Si la base contient $M$ modèles et que chaque modèle est représenté par $N$ vues, la complexité naïve est en $O(M \times N)$. Pour cette raison, Löffler souligne la nécessité de structures d’indexation ou de filtrage précoce afin de rendre la recherche interactive.
+
+En résumé, la méthode de Löffler propose une formulation simple et intuitive de la recherche 3D par le contenu, fondée sur la comparaison directe de vues 2D. Elle évite explicitement la normalisation 3D de la pose et s’adapte naturellement aux requêtes par esquisse. En contrepartie, son efficacité dépend fortement du nombre de vues considérées et de la qualité des descripteurs 2D utilisés pour représenter les silhouettes.
+
+\subsubsection{~\cite{funkhouser42}}
+
+Funkhouser et ses collaborateurs ont proposé une approche basée sur la similarité par vues (view-based similarity) pour la recherche de formes 3D. Leur méthode consiste à représenter chaque modèle 3D $M$ par un ensemble de $K = 13$ images miniatures (thumbnails) $\{I_1, \ldots, I_{13}\}$ obtenues à partir de 13 directions orthographiques différentes. Ces directions correspondent aux axes canoniques et aux diagonales principales d'un cube englobant le modèle normalisé.
+
+Chaque image $I_k$ contient la silhouette (contour binaire) de l'objet projeté selon la direction $\mathbf{v}_k$. Le descripteur du modèle est alors :
+
+$$\mathbf{D}(M) = \{I_1, I_2, \ldots, I_{13}\}$$
+
+Lors d'une requête, l'utilisateur fournit un ou plusieurs croquis $\{S_1, \ldots, S_m\}$ représentant l'objet recherché sous différents angles. La similarité entre un croquis $S_j$ et une vue $I_k$ est mesurée par une distance d'images, typiquement basée sur une métrique pixel à pixel après normalisation :
+
+$$d(S_j, I_k) = \sum_{(x,y)} |S_j(x,y) - I_k(x,y)|$$
+
+où $S_j(x,y)$ et $I_k(x,y)$ désignent les valeurs binaires aux coordonnées $(x,y)$.
+
+La dissimilarité globale entre la requête (ensemble de croquis) et un modèle $M$ est définie comme :
+
+$$D(\{S_j\}, M) = \frac{1}{m} \sum_{j=1}^m \min_{k=1,\ldots,13} d(S_j, I_k)$$
+
+Cette formulation permet d'apparier chaque croquis à la vue la plus similaire du modèle, assurant ainsi une certaine robustesse aux variations de point de vue.
+
+Cette approche présente l'avantage de s'appuyer sur des représentations visuelles intuitives et de permettre une recherche par exemple ou par croquis. Le coût de calcul est de l'ordre de $O(m \times K \times n_{\text{pixels}})$ pour comparer une requête à un modèle, où $n_{\text{pixels}}$ est la résolution des images. La performance dépend fortement de la qualité et de la diversité des vues sélectionnées, ainsi que de la précision de la normalisation de pose préalable.
+
+
+\subsubsection{~\cite{cyr32}}
+
+L'approche développée par \textbf{Cyr et Kimia} repose sur le paradigme de la \textbf{similarité basée sur les vues}, où un objet 3D est reconnu et récupéré à partir d'une ou plusieurs de ses projections bidimensionnelles. Cette méthode se distingue par l'utilisation de structures topologiques complexes --- les graphes de choc --- pour représenter les silhouettes extraites.
+
+\paragraph{Principe de représentation et prétraitement.}
+Soit un modèle 3D $M$. Sa représentation initiale consiste en un ensemble de $N$ vues projetées $\{V_1, V_2, \ldots, V_N\}$ obtenues par échantillonnage uniforme sur la sphère de visualisation. Afin de maintenir un volume de données gérable, les auteurs procèdent à une réduction du nombre de vues par un mécanisme de \textbf{partitionnement} (\textit{clustering}) :
+
+\begin{itemize}
+    \item Les vues similaires sont regroupées en $K \ll N$ clusters $\{C_1, \ldots, C_K\}$ selon une métrique de similarité entre silhouettes.
+    \item Chaque cluster $C_k$ est représenté par une vue prototype $V_k^*$, sélectionnée comme le médoïde du cluster :
+    $$V_k^* = \arg\min_{V_i \in C_k} \sum_{V_j \in C_k} d_{\text{silhouette}}(V_i, V_j)$$
+\end{itemize}
+
+Chaque vue représentative $V_k^*$ est ensuite encodée sous la forme d'un \textbf{graphe de choc} (\textit{shock graph}) $G_k = (S_k, E_k)$, où $S_k$ désigne l'ensemble des nœuds (shocks) étiquetés par leur type géométrique et leurs attributs, et $E_k$ représente les arêtes reliant les shocks adjacents. Cette représentation structurelle capture la géométrie fine et la topologie de la silhouette.
+
+Le descripteur complet du modèle $M$ est alors :
+$$\mathbf{D}(M) = \{G_1, G_2, \ldots, G_K\}$$
+
+\paragraph{Processus de requête et appariement.}
+Lors d'une recherche, l'utilisateur spécifie sa requête $Q$ par une vue d'un objet 3D, à laquelle est associé un graphe de choc $G_Q$. Le système procède à une comparaison de ce graphe avec l'intégralité des graphes de choc stockés dans la base de données en utilisant des techniques d'appariement de graphes.
+
+La mesure de dissimilarité entre le graphe de requête $G_Q$ et un graphe de modèle $G_k$ est définie par une distance d'édition de graphes :
+$$d_{\text{graphe}}(G_Q, G_k) = \min_{\phi} \sum_{s \in S_Q} c(s, \phi(s)) + \sum_{e \in E_Q} c(e, \phi(e))$$
+où $\phi$ est un appariement (homomorphisme) entre les nœuds et arêtes des deux graphes, et $c(\cdot, \cdot)$ désigne le coût de mise en correspondance ou de suppression/insertion d'un élément.
+
+La dissimilarité globale entre la requête $Q$ et un modèle $M$ est calculée comme :
+$$D(Q, M) = \min_{k=1,\ldots,K} d_{\text{graphe}}(G_Q, G_k)$$
+
+Cette formulation permet de trouver la vue du modèle dont le graphe de choc est le plus proche de celui de la requête.
+
+\paragraph{Analyse technique et limitations.}
+Les caractéristiques de cette méthode peuvent être synthétisées ainsi :
+
+\begin{itemize}
+    \item \textbf{Pouvoir discriminatif :} Élevé. Les graphes de choc permettent de distinguer des détails structurels subtils (nombre de branches, type de jonctions, distribution des rayons le long de l'axe médian) que des descripteurs globaux pourraient ignorer.
+    
+    \item \textbf{Normalisation de pose :} Non requise. Contrairement aux méthodes basées sur les harmoniques sphériques ou la PCA, cette approche est intrinsèquement robuste aux rotations 3D grâce à la multiplicité et la diversité des vues stockées.
+    
+    \item \textbf{Efficacité computationnelle :} Moyenne. La complexité de l'appariement d'un graphe de requête $G_Q$ (avec $|S_Q|$ nœuds) contre un graphe de modèle $G_k$ (avec $|S_k|$ nœuds) est exponentielle dans le pire cas : $O(|S_Q|! \cdot |S_k|)$ pour une recherche exhaustive. Un inconvénient majeur relevé dans les sources est que Cyr et Kimia n'ont pas traité le problème de l'\textbf{indexation} des graphes de choc. Le système doit donc effectuer une recherche linéaire à travers les $\sum_{M \in \mathcal{D}} K_M$ graphes de la base de données $\mathcal{D}$, ce qui limite le passage à l'échelle pour de grandes collections.
+    
+    \item \textbf{Robustesse :} Élevée face aux bruits de surface, aux petits trous et aux irrégularités du maillage 3D, car la méthode repose sur des silhouettes 2D binaires extraites par projection. Les défauts topologiques du modèle 3D (non-variété, auto-intersections) n'affectent pas directement la génération des silhouettes.
+    
+    \item \textbf{Correspondance partielle :} Non supportée directement. La méthode est conçue pour l'appariement global de vues complètes, et ne permet pas naturellement la recherche de sous-parties d'objets.
+\end{itemize}
+
+En résumé, l'approche de Cyr et Kimia offre un pouvoir discriminant élevé grâce à l'encodage structurel riche des graphes de choc, au prix d'une complexité computationnelle importante et d'une absence de mécanisme d'indexation efficace.
+
+\subsubsection{~\cite{macrini77}}
+
+S'appuyant sur les travaux de Cyr et Kimia, Macrini et al. proposent une méthode de reconnaissance d'objets 3D basée sur les vues utilisant l'appariement de \textbf{graphes de choc} (\textit{shock graphs}). Dans cette approche, chaque vue bidimensionnelle d'un modèle 3D est convertie en une structure de graphe qui capture la topologie et la géométrie de la silhouette. L'innovation majeure de Macrini et al. réside dans l'introduction de \textbf{vecteurs de signature topologique} pour résoudre le problème de l'indexation. Contrairement aux méthodes précédentes qui nécessitaient une recherche linéaire fastidieuse à travers toutes les vues de la base de données, l'utilisation de ces signatures permet d'organiser les graphes de choc de manière à faciliter une récupération efficace par similarité. Cette technique permet d'éviter la complexité algorithmique d'un appariement exhaustif tout en conservant le pouvoir discriminatif élevé des structures de graphes pour la reconnaissance visuelle.
+
+\subsubsection{~\cite{chen27,chen112} (LightField)}
+
+Chen et al. ont introduit le descripteur \textbf{LightField}, une méthode de pointe basée sur la similarité visuelle où deux modèles sont jugés similaires s'ils présentent une apparence analogue sous tous les angles de vue. Le descripteur se compose de \textbf{dix silhouettes} obtenues à partir de points de vue distribués uniformément sur une sphère de visualisation. Chaque silhouette est encodée par une combinaison de \textbf{moments de Zernike} et de \textbf{descripteurs de Fourier}.
+
+La mesure de dissimilarité $d$ entre deux modèles $M_1$ et $M_2$ est définie comme la valeur minimale obtenue en faisant pivoter virtuellement la sphère de visualisation de l'un par rapport à l'autre : $$d(M_1, M_2) = \min_{g \in G} \text{dist}(g(D_{M1}), D_{M2})$$ où $G$ représente le groupe de rotations discrètes de la sphère. Pour optimiser le temps de calcul, Chen et al. utilisent une approche multi-étapes permettant le \textbf{rejet précoce} (\textit{early rejection}) des modèles non pertinents, réduisant ainsi la charge computationnelle globale. Bien que cette méthode soit plus coûteuse en termes de traitement et de stockage que les approches par harmoniques 3D, les résultats expérimentaux sur une base de 1 833 modèles démontrent une capacité de discrimination supérieure. Un avantage crucial est qu'**aucune normalisation de pose** n'est requise, car la comparaison est intrinsèquement robuste aux rotations.
+
+\subsubsection{~\cite{ohbuchi94}}
+
+L'approche de Ohbuchi et al. repose sur un descripteur de forme utilisant l'apparence de \textbf{42 images de tampons de profondeur} (\textit{depth-buffer images}) capturées depuis des points de vue distribués spatialement. Contrairement aux silhouettes binaires, les images de profondeur capturent l'information de relief de l'objet. Chaque image est caractérisée par un \textit{descripteur de Fourier 2D} invariant en rotation, générant un ensemble de 42 vecteurs de caractéristiques pour chaque modèle.
+
+La dissimilarité est calculée en minimisant la distance entre toutes les combinaisons possibles des vecteurs de caractéristiques des deux modèles comparés, soit une complexité de $42^2$ appariements par comparaison : $$d(M_1, M_2) = \min_{i,j \in {1 \dots 42}} |v_{M1,i} - v_{M2,j}|$$
+
+Les tests menés sur une base de 1 213 modèles indiquent que cette méthode surpasse les distributions de formes de type D2 en termes de précision de recherche. Cependant, cette performance accrue s'accompagne d'un temps de traitement significativement plus long en raison du grand nombre de vues et de la complexité du processus d'appariement. À l'instar de la méthode LightField, ce descripteur ne nécessite \textit{aucune étape de normalisation de pose} préalable.
+
+\subsubsection{~\cite{vranic127}}
+
+Dans ses travaux de thèse, Vranić propose deux descripteurs distincts fondés sur l'apparence visuelle, nécessitant tous deux une étape préalable de \textbf{normalisation de pose} rigoureuse pour aligner le modèle sur un système de coordonnées canonique. 
+
+\begin{enumerate}
+    \item \textbf{Descripteur basé sur les silhouettes :} Ce descripteur est généré à partir de trois images de silhouettes capturées perpendiculairement aux axes $x$, $y$ et $z$ du système canonique. La caractéristique de forme pour chaque silhouette est extraite sous la forme d'une séquence de coefficients de Fourier discrets.
+    \item \textbf{Descripteur basé sur les tampons de profondeur :} Plus complexe, cette méthode utilise des images de \textit{depth-buffer} provenant de six points de vue perpendiculaires aux faces d'un cube englobant aligné sur les axes canoniques. Comme pour les silhouettes, les caractéristiques sont représentées par des coefficients de Fourier.
+\end{enumerate}
+
+Les sources soulignent que Vranić a également exploré des \textbf{méthodes hybrides}. Ses tests expérimentaux démontrent qu'une combinaison pondérée du descripteur de tampon de profondeur, du descripteur de silhouette et du descripteur basé sur les rayons (\textit{ray-based}) offre les meilleures performances globales en termes de récupération.
+
+\subsubsection{~\cite{ansary9}}
+
+Ansary et al. introduisent un cadre bayésien pour la recherche de modèles 3D à partir de vues 2D, en mettant l'accent sur l'optimisation de l'espace de recherche. 
+
+Plutôt que d'utiliser un grand nombre de vues redondantes, leur méthode consiste à :
+\begin{itemize}
+    \item Sélectionner un ensemble initial de 80 vues réparties uniformément sur la sphère unité.
+    \item Extraire un sous-ensemble réduit de \textbf{vues caractéristiques} pour représenter le modèle de manière compacte.
+    \item Utiliser une approche probabiliste pour améliorer la pertinence des résultats lors d'une requête par vue 2D.
+\end{itemize}
+
+Leurs expérimentations indiquent que les \textbf{moments de Zernike 2D} présentent un pouvoir discriminatif supérieur aux histogrammes de courbure ou aux représentations de l'espace d'échelle de courbure (\textit{curvature scale space}) pour l'indexation de ces vues.
+
+\subsubsection{Autres approches mentionnées}
+
+Plusieurs autres méthodologies fondées sur la géométrie et les vues sont recensées dans les sources pour répondre à des besoins spécifiques :
+
+\begin{itemize}
+    \item \textbf{Sélection de vues par analyse statistique :} Certaines méthodes tentent d'optimiser la recherche en ne sélectionnant que les vues contenant le maximum d'informations structurelles, par exemple en utilisant l'analyse en composantes principales (PCA) ou l'analyse des plans principaux pour déterminer les angles de vue optimaux.
+    \item \textbf{Interface par croquis (Funkhouser et al.~\cite{funkhouser42}) :} Pour supporter les requêtes par esquisses manuelles, Funkhouser utilise un descripteur composé de 13 vignettes (\textit{thumbnails}) représentant les contours de bordure d'un objet vus sous 13 directions orthographiques. La similarité est alors calculée par un appariement d'images entre le croquis de l'utilisateur et ces contours pré-calculés.
+    \item \textbf{Approches volumétriques et points pondérés :} Bien que distinctes des vues pures, des méthodes comme celle de Novotni et Klein comparent les modèles par le calcul d'une \textbf{erreur volumétrique} entre l'objet et une séquence de coques décalées (\textit{offset hulls}), bien que cette mesure ne respecte pas toujours l'inégalité triangulaire.
+\end{itemize}
+
+%%\subsection{Comparaison et limites des approches view-based}
+
+
+%%Analyse comparative des méthodes en termes de précision, coût de calcul, sensibilité à la pose, robustesse aux variations géométriques et scalabilité.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Évolutions et travaux complémentaires sur les méthodes view-based}
+
+\section{Motivation de la recherche complémentaire}
+
+Le survey de Tangelder et Veltkamp \cite{tangelder2007survey} a établi que les méthodes view-based présentaient un pouvoir discriminant supérieur, notamment avec le descripteur LightField \cite{chen2003visual}. Néanmoins, ces approches reposaient sur des descripteurs géométriques manuels et nécessitaient un alignement préalable. Cette section examine les évolutions méthodologiques apparues après 2007, marquées par l'optimisation des descripteurs classiques, l'introduction de l'apprentissage supervisé, puis l'émergence du deep learning.
+
+L'objectif n'est pas de reproduire exhaustivement les travaux ultérieurs, mais d'identifier les ruptures conceptuelles et les continuités méthodologiques qui ont permis au paradigme view-based de conserver sa pertinence face aux approches volumétriques et basées sur les nuages de points. Cette analyse s'articule autour de trois phases distinctes : l'amélioration des méthodes classiques (2007-2012), l'introduction de l'apprentissage supervisé (2012-2015), et l'avènement du deep learning (post-2015).
+
+\section{Améliorations des méthodes view-based classiques}
+
+\subsection{Optimisation de l'échantillonnage et de la sélection de vues}
+
+La redondance des vues constitue un défi majeur. Ohbuchi et al. \cite{ohbuchi2003salient} proposent une sélection de vues saillantes fondée sur l'entropie de l'information, réduisant le nombre de vues nécessaires tout en préservant la couverture angulaire. Cette approche améliore l'efficacité computationnelle sans compromettre la précision.
+
+D'un point de vue conceptuel, ces travaux traduisent un déplacement du problème, passant d'une couverture exhaustive de l'espace des points de vue à une sélection informée guidée par des critères informationnels. Cette évolution répond directement à une limite soulignée dans le survey de 2007, à savoir la croissance linéaire du coût computationnel avec le nombre de vues. Elle introduit toutefois un compromis implicite entre complétude géométrique et efficacité, la performance du système devenant dépendante de la pertinence du critère de sélection adopté. Les expérimentations montrent qu'une réduction de 80\% du nombre de vues ne dégrade la précision que de 2 à 3\%, validant cette approche pour des applications à grande échelle.
+
+\subsection{Amélioration des descripteurs et des métriques de similarité}
+
+Les extensions du descripteur LightField incluent l'utilisation de moments de Zernike adaptatifs et de descripteurs SIFT multi-échelles \cite{papadakis2010panorama}. Ces améliorations renforcent la robustesse face aux occultations partielles et aux variations d'éclairage, limitations identifiées dans \cite{tangelder2007survey}.
+
+L'introduction de descripteurs locaux dense (SIFT, SURF) appliqués aux vues permet de capturer des informations structurelles fines que les descripteurs globaux comme les moments de Zernike ne peuvent représenter. Cette hybridation entre approches globales et locales offre un meilleur compromis entre pouvoir discriminant et invariance aux transformations géométriques. Toutefois, elle nécessite des mécanismes d'agrégation sophistiqués pour maintenir une représentation compacte compatible avec l'indexation à grande échelle.
+
+\subsection{Indexation et passage à l'échelle}
+
+L'indexation multi-vues repose sur des structures métriques (VP-tree, M-tree) et des techniques de hashing \cite{li2012large}. Ces méthodes permettent une recherche sous-linéaire dans des bases contenant plusieurs millions de modèles, répondant aux exigences d'efficacité soulignées par \cite{tangelder2007survey}.
+
+Le défi principal réside dans la préservation de la qualité du rappel malgré l'approximation introduite par le hashing. Les approches basées sur le Locality-Sensitive Hashing (LSH) adaptées aux descripteurs multi-vues démontrent qu'il est possible d'atteindre un rappel supérieur à 95\% avec une accélération d'un facteur 100 par rapport à la recherche exhaustive. Cette avancée rend les méthodes view-based compétitives pour des applications industrielles nécessitant des réponses en temps réel.
+
+Cette première vague d'améliorations reste toutefois fondée sur des descripteurs conçus manuellement. Une limite structurelle de ces approches réside dans leur incapacité à s'adapter automatiquement à la variabilité des formes et aux critères perceptifs humains. Cette observation a motivé l'introduction progressive de techniques d'apprentissage dans les méthodes view-based.
+
+\section{Introduction de l'apprentissage dans les approches view-based}
+
+\subsection{Méthodes fondées sur l'apprentissage supervisé}
+
+L'apprentissage de métriques adaptées \cite{eitz2012sketch} exploite des annotations humaines pour ajuster les distances entre descripteurs de vues. Ces approches combinent SVM et k-NN pondéré, améliorant la correspondance avec la similarité perceptive.
+
+L'apport fondamental de ces méthodes réside dans leur capacité à intégrer des jugements de similarité subjectifs dans la fonction de distance. Contrairement aux métriques euclidiennes classiques, les métriques apprises pondèrent différentiellement les dimensions du descripteur en fonction de leur pertinence perceptive. Cette adaptation permet de réduire l'écart entre similarité géométrique objective et similarité perçue par les utilisateurs, écart déjà identifié dans \cite{tangelder2007survey} comme une limitation des approches purement géométriques.
+
+\subsection{Représentations intermédiaires et Bag of Visual Words}
+
+Les méthodes BoVW appliquées aux vues 2D \cite{toldo20093d} construisent des vocabulaires visuels par clustering de descripteurs locaux (SIFT, SURF). Cette représentation intermédiaire offre une meilleure robustesse aux déformations locales que les descripteurs globaux.
+
+Cette approche transpose au domaine 3D des techniques éprouvées en reconnaissance d'images. Le vocabulaire visuel capture des motifs géométriques récurrents (arêtes, surfaces courbes, jonctions) indépendamment de leur position absolue dans la vue. La représentation par histogramme de mots visuels introduit une invariance partielle aux déformations articulées, limitation majeure des méthodes view-based classiques soulignée dans le survey. Néanmoins, la construction du vocabulaire requiert un corpus d'apprentissage représentatif, limitant l'applicabilité à des domaines restreints.
+
+Malgré ces avancées, l'apprentissage supervisé conserve une dépendance aux descripteurs manuels (SIFT, moments) pour l'extraction initiale de caractéristiques. Cette contrainte limite le pouvoir d'adaptation des systèmes face à des distributions de formes non anticipées lors de la conception des descripteurs. L'émergence du deep learning a permis de lever cette limitation en apprenant conjointement extraction de caractéristiques et classification.
+
+\section{Méthodes view-based basées sur le deep learning}
+
+\subsection{Réseaux convolutifs multi-vues}
+
+L'architecture MVCNN \cite{su2015multi} constitue une rupture méthodologique majeure. En appliquant un CNN partagé à chaque vue, puis en agrégeant les caractéristiques par max-pooling, MVCNN apprend des représentations robustes sans normalisation de pose préalable. Cette approche surpasse les méthodes voxel-based sur le benchmark ModelNet40 (90.1\% vs 83\% de précision).
+
+MVCNN répond directement aux trois limitations centrales identifiées dans le survey de 2007 : (1) la nécessité d'une normalisation de pose est contournée par l'apprentissage d'invariances, (2) le coût computationnel est amorti par le partage de poids entre vues, (3) le pouvoir discriminant est maximisé par l'apprentissage end-to-end. L'opération de max-pooling joue un rôle crucial en sélectionnant automatiquement les vues les plus informatives pour chaque classe, évitant ainsi la fusion uniforme qui diluait l'information dans les approches classiques. Cette architecture démontre que le paradigme view-based, loin d'être obsolète, constitue un cadre optimal pour exploiter les architectures convolutives 2D pré-entraînées sur ImageNet.
+
+\subsection{Comparaison avec les approches voxel-based et point-based}
+
+Les méthodes view-based profondes conservent un avantage sur les approches volumétriques en termes de précision et de coût mémoire \cite{qi2016volumetric}. Cependant, PointNet \cite{qi2017pointnet} démontre que les réseaux opérant directement sur les nuages de points atteignent des performances comparables avec une complexité réduite.
+
+Cette comparaison révèle un compromis fondamental entre expressivité de la représentation et efficacité computationnelle. Les méthodes view-based bénéficient de l'infrastructure mature du traitement d'images (transfert learning, augmentation de données), tandis que les approches point-based offrent une manipulation géométrique directe. Les expérimentations sur ModelNet et ShapeNet montrent que MVCNN excelle sur les formes complexes à texture riche, alors que PointNet performe mieux sur les formes géométriques pures. Cette complémentarité a motivé le développement d'architectures hybrides combinant les deux paradigmes.
+
+\section{Analyse critique et apport par rapport au survey de 2007}
+
+\subsection{Limites identifiées dans le survey et solutions ultérieures}
+
+Le coût computationnel élevé, mentionné par \cite{tangelder2007survey}, a été résolu par l'indexation hiérarchique et le GPU computing. La dépendance à la normalisation de pose est contournée par l'apprentissage de caractéristiques invariantes \cite{su2015multi}.
+
+Une analyse comparative des trois époques révèle des trajectoires d'évolution distinctes. La période 2000-2007 se caractérise par une ingénierie manuelle de descripteurs géométriques (moments, harmoniques sphériques) et une dépendance critique à l'alignement PCA. La période 2008-2014 introduit l'apprentissage supervisé de métriques et de vocabulaires visuels, tout en conservant les descripteurs manuels. La période post-2015 marque l'abandon progressif des descripteurs explicites au profit de représentations apprises, l'alignement devenant implicitement géré par les couches convolutives.
+
+Ce qui a disparu : la normalisation PCA explicite, les descripteurs analytiques fermés, la recherche exhaustive. Ce qui persiste : le principe multi-vues, l'agrégation de l'information angulaire, la recherche du minimum de dissimilarité. Cette continuité conceptuelle valide rétrospectivement les intuitions fondatrices du paradigme view-based.
+
+\subsection{Évolution du paradigme view-based}
+
+Le paradigme view-based a évolué d'une approche fondée sur des descripteurs géométriques explicites vers des représentations apprises de manière end-to-end. Cette transition conserve le principe fondamental : la similarité 3D se manifeste dans la cohérence des apparences 2D projetées.
+
+Cette invariance du principe sous-jacent malgré les mutations technologiques témoigne de la robustesse conceptuelle de l'approche view-based. L'hypothèse centrale, formulée implicitement dans les travaux pionniers et formalisée dans le survey de 2007, selon laquelle la projection 2D préserve suffisamment d'information pour discriminer les formes 3D, a résisté à quinze années d'innovations algorithmiques. Le deep learning n'a pas invalidé cette hypothèse ; il l'a au contraire renforcée en démontrant qu'un apprentissage optimal exploite naturellement cette structure multi-vues.
+
+\subsection{Positionnement des méthodes view-based dans l'écosystème actuel}
+
+Les méthodes view-based demeurent compétitives dans plusieurs contextes applicatifs. Pour la recherche à grande échelle sur des bases hétérogènes, elles offrent un compromis optimal entre précision et efficacité. Pour l'exploitation de modèles pré-entraînés ImageNet, elles permettent un transfert direct de connaissances visuelles 2D vers le domaine 3D. Pour les contraintes mémoire GPU limitées, leur représentation compacte (12 vues × 224 × 224 pixels) reste plus économique que les grilles voxeliques haute résolution.
+
+Inversement, pour les tâches nécessitant une manipulation géométrique explicite (segmentation, génération), les approches point-based ou volumétriques s'avèrent plus adaptées. Cette complémentarité a motivé le développement d'architectures hybrides combinant extraction de caractéristiques par vues et raffinement géométrique par nuages de points \cite{you2018pvnet}. L'interprétabilité constitue également un avantage des méthodes view-based : l'inspection visuelle des vues saillantes identifiées par le réseau facilite le diagnostic d'erreurs et la validation par des experts métier.
+
+\section{Synthèse et perspectives}
+
+Les méthodes view-based ont démontré une capacité d'adaptation remarquable, intégrant successivement l'apprentissage supervisé puis le deep learning. Les perspectives incluent l'hybridation avec les approches point-based \cite{you2018pvnet} et l'exploitation de la multimodalité (texte-forme) pour des systèmes de recherche à grande échelle. Le paradigme view-based demeure pertinent, confirmant les conclusions de \cite{tangelder2007survey} sur son pouvoir discriminant supérieur.
+
+L'avenir des méthodes view-based s'oriente vers trois directions principales. Premièrement, l'intégration de mécanismes d'attention permettant une sélection dynamique des vues en fonction de la requête. Deuxièmement, l'exploitation de modèles de vision-langage pré-entraînés (CLIP) pour une recherche multimodale texte-forme. Troisièmement, le développement d'architectures auto-supervisées ne nécessitant pas d'annotations manuelles. Ces évolutions, tout en transformant l'implémentation technique, préservent l'intuition fondamentale que la cohérence des apparences 2D constitue un proxy efficace de la similarité géométrique 3D.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Implémentation des descripteurs basés sur les vues}
+
+Ce chapitre présente l'implémentation des descripteurs basés sur les vues pour la recherche de modèles 3D par le contenu. Nous décrivons les choix méthodologiques retenus, le pipeline de calcul des descripteurs, les mesures de similarité utilisées ainsi que les pré-traitements appliqués aux modèles 3D.
+
+\section{Choix des descripteurs retenus}
+
+Les descripteurs basés sur les vues reposent sur un paradigme fondamental en vision par ordinateur : deux objets 3D sont considérés comme similaires s'ils présentent une apparence visuelle analogue lorsqu'ils sont observés depuis un ensemble de points de vue. Cette approche s'inspire directement des mécanismes de reconnaissance visuelle humaine, où la perception d'un objet repose sur l'intégration de multiples perspectives.
+
+Le principe consiste à projeter un modèle 3D selon un ensemble de directions de vue distribuées sur une sphère englobante, puis à extraire des caractéristiques discriminantes de chaque projection bidimensionnelle. L'ensemble de ces caractéristiques constitue le descripteur du modèle, qui peut ensuite être comparé aux descripteurs d'autres modèles pour établir une mesure de similarité.
+
+Dans notre implémentation, nous avons retenu deux descripteurs complémentaires qui représentent deux paradigmes distincts de l'approche multi-vues :
+
+\paragraph{Le descripteur LightField (LFD).} Ce descripteur s'inspire des travaux de Chen et al. et repose sur l'extraction de silhouettes binaires depuis dix points de vue structurés. Les vues sont organisées selon une configuration déterministe : deux vues polaires (supérieure et inférieure) et un anneau de huit vues équidistantes sur le plan équatorial de la sphère de visualisation. Chaque silhouette est ensuite caractérisée par une combinaison de moments de Zernike et de descripteurs de Fourier du contour, produisant un vecteur de caractéristiques par vue. Le descripteur final du modèle est donc une matrice de dimension $(10 \times d)$, où $d$ représente la dimension du vecteur de caractéristiques par vue.
+
+\paragraph{Le descripteur Depth Buffer.} Ce descripteur exploite les cartes de profondeur plutôt que les silhouettes binaires. Contrairement à la silhouette qui ne capture que l'enveloppe externe de l'objet, la carte de profondeur encode la distance entre la caméra et chaque point visible de la surface, fournissant ainsi une information de relief. Nous utilisons 42 points de vue distribués quasi-uniformément sur la sphère selon une spirale de Fibonacci, garantissant une couverture spatiale homogène. Pour chaque vue, nous extrayons un vecteur de caractéristiques comprenant un histogramme des valeurs de profondeur, un histogramme des magnitudes de gradient, et des statistiques scalaires (moyenne, écart-type, percentiles). Le descripteur final est une matrice de dimension $(42 \times d')$, où $d'$ désigne la dimension du vecteur par vue.
+
+\subsection{Justification du choix}
+
+Le choix des descripteurs basés sur les vues se justifie par plusieurs propriétés fondamentales qui les distinguent des approches alternatives.
+
+\paragraph{Robustesse aux défauts de modélisation.} Contrairement aux descripteurs basés sur le modèle (tels que les harmoniques sphériques ou les histogrammes de forme), les descripteurs multi-vues opèrent sur des projections bidimensionnelles du modèle 3D. Cette indirection les rend naturellement robustes aux défauts topologiques fréquents dans les maillages polygonaux : surfaces non fermées, auto-intersections, triangles dégénérés ou orientations inconsistantes des normales. Les projections restent visuellement cohérentes même lorsque le modèle sous-jacent présente des imperfections géométriques.
+
+\paragraph{Pouvoir discriminant élevé.} Les études comparatives de la littérature, notamment les benchmarks du Princeton Shape Benchmark, ont démontré que les descripteurs multi-vues offrent un pouvoir discriminant supérieur aux descripteurs volumétriques ou aux distributions de forme. Cette supériorité s'explique par la richesse de l'information capturée : les projections préservent simultanément les caractéristiques globales de la forme et les détails locaux de la silhouette.
+
+\paragraph{Invariance aux transformations géométriques.} L'invariance à l'échelle et à la translation est assurée par une étape de normalisation préalable du modèle. L'invariance à la rotation est traitée de manière implicite lors de la comparaison : plutôt que de normaliser explicitement l'orientation du modèle, nous testons un ensemble discret de rotations et conservons la correspondance minimisant la distance. Cette approche évite les ambiguïtés inhérentes à la normalisation par analyse en composantes principales (PCA), notamment pour les formes symétriques.
+
+\paragraph{Complémentarité des deux descripteurs.} Le descripteur LFD, fondé sur les silhouettes, capture efficacement la forme globale de l'objet et ses caractéristiques de contour. Le descripteur Depth Buffer, en revanche, encode l'information de relief et de variation de surface. La disponibilité des deux descripteurs permet à l'utilisateur de choisir la représentation la plus adaptée à son cas d'usage, voire de combiner les deux pour améliorer la précision de la recherche.
+
+\paragraph{Efficacité computationnelle.} Le calcul des projections 2D et l'extraction des caractéristiques sont des opérations relativement peu coûteuses en comparaison des méthodes nécessitant une analyse volumétrique ou une décomposition spectrale du maillage. Le rendu hors écran des vues exploite les capacités d'accélération matérielle via OpenGL, permettant un traitement interactif même pour des bases de données de taille conséquente.
+
+\section{Étapes de calcul des descripteurs sur un modèle .obj}
+
+Le calcul d'un descripteur view-based pour un modèle 3D au format OBJ suit un pipeline séquentiel rigoureux, dont chaque étape conditionne la qualité et la reproductibilité du descripteur final.
+
+\paragraph{Étape 1 : Chargement du maillage.} Le modèle 3D est chargé à partir du fichier OBJ selon la spécification Wavefront. Le parseur extrait uniquement les informations géométriques essentielles : les positions des sommets (lignes \texttt{v}) et les définitions des faces (lignes \texttt{f}). Les coordonnées de texture, les normales explicites, les groupes et les matériaux sont ignorés, car ils ne contribuent pas à la description de la forme. Les faces polygonales (n-gones) sont automatiquement triangulées par une méthode de ventilation (fan triangulation) afin d'obtenir un maillage exclusivement composé de triangles.
+
+\paragraph{Étape 2 : Validation et nettoyage.} Une vérification minimale est effectuée pour garantir que le maillage contient au moins un sommet et une face valide. Les valeurs non finies (NaN, infini) sont remplacées par zéro pour prévenir les erreurs numériques lors des étapes ultérieures.
+
+\paragraph{Étape 3 : Normalisation géométrique.} Cette étape cruciale transforme le modèle dans un espace de coordonnées canonique. Nous décrivons en détail les opérations de normalisation dans la section dédiée aux pré-traitements.
+
+\paragraph{Étape 4 : Génération des poses de caméra.} Les positions et orientations des caméras virtuelles sont déterminées selon le preset choisi. Pour le descripteur LFD, nous utilisons le preset \texttt{LFD\_10} qui génère dix poses structurées : une vue du pôle supérieur $(0, 1, 0)$, une vue du pôle inférieur $(0, -1, 0)$, et huit vues réparties uniformément sur l'anneau équatorial à des azimuts de $0°, 45°, 90°, \ldots, 315°$. Pour le descripteur Depth Buffer, le preset \texttt{DEPTH\_42} génère 42 poses distribuées selon une spirale de Fibonacci sur la sphère unité, garantissant une couverture quasi-uniforme de l'espace des directions. Chaque pose est définie par un vecteur direction unitaire, une position de caméra située à une distance fixe du centre (typiquement 2.5 unités), et un vecteur haut permettant d'orienter la caméra.
+
+\paragraph{Étape 5 : Rendu des projections.} Le moteur de rendu hors écran (off-screen rendering) génère les projections bidimensionnelles pour chaque pose de caméra. Ce rendu s'effectue via un contexte OpenGL créé avec GLFW et un framebuffer object (FBO) permettant la lecture des pixels sans affichage à l'écran.
+
+Pour le descripteur LFD, le rendu produit des silhouettes binaires : le modèle est affiché en blanc sur fond noir, et l'image résultante est binarisée pour obtenir un masque de la région occupée par l'objet. 
+
+Pour le descripteur Depth Buffer, le rendu capture le tampon de profondeur OpenGL. Les valeurs brutes du depth buffer, exprimées en coordonnées normalisées non linéaires, sont linéarisées selon la formule :
+$$z_{\text{linéaire}} = \frac{2 \cdot n \cdot f}{f + n - z_{\text{ndc}} \cdot (f - n)}$$
+où $n$ et $f$ désignent les plans de découpe proche et lointain, et $z_{\text{ndc}} = 2z_{\text{buffer}} - 1$ représente la profondeur en coordonnées normalisées. Les pixels du fond (où aucune géométrie n'est visible) sont marqués à zéro.
+
+\paragraph{Étape 6 : Prétraitement des images.} Les projections brutes subissent un prétraitement spécifique au type de descripteur.
+
+Pour les silhouettes LFD, l'image est binarisée, recadrée sur la boîte englobante du contenu non nul, puis redimensionnée à une résolution carrée fixe (typiquement $128 \times 128$) par interpolation au plus proche voisin afin de préserver les contours nets.
+
+Pour les cartes de profondeur, l'image est redimensionnée par interpolation bilinéaire, le masque de premier plan est extrait (pixels de profondeur non nulle), les valeurs aberrantes sont écrêtées au 99e percentile, puis la profondeur est normalisée linéairement dans l'intervalle $[0, 1]$ sur la région du premier plan.
+
+\paragraph{Étape 7 : Extraction des caractéristiques par vue.} Chaque projection prétraitée est caractérisée par un vecteur de dimension fixe.
+
+Pour le descripteur LFD, nous combinons deux familles de caractéristiques :
+\begin{itemize}
+    \item \textbf{Moments de Zernike} : calculés jusqu'à un ordre maximal de 8, ces moments orthogonaux sur le disque unité fournissent une description compacte et invariante à la rotation de la distribution de masse de la silhouette.
+    \item \textbf{Descripteurs de Fourier du contour} : le contour principal de la silhouette est extrait, paramétré comme une courbe complexe $z(t) = x(t) + iy(t)$, puis analysé par transformée de Fourier. Les magnitudes des 10 premiers coefficients (hors composante continue) constituent le descripteur de contour.
+\end{itemize}
+
+Pour le descripteur Depth Buffer, le vecteur de caractéristiques comprend :
+\begin{itemize}
+    \item Un \textbf{histogramme de profondeur} à 32 bins, normalisé pour former une distribution de probabilité empirique.
+    \item Un \textbf{histogramme de magnitude de gradient} à 16 bins, capturant les variations locales de relief.
+    \item Des \textbf{statistiques scalaires} : moyenne, écart-type, minimum, maximum, et cinq percentiles (10\%, 25\%, 50\%, 75\%, 90\%) de la distribution de profondeur.
+\end{itemize}
+
+\paragraph{Étape 8 : Agrégation en descripteur de modèle.} Les vecteurs de caractéristiques des différentes vues sont empilés pour former une matrice représentant le descripteur complet du modèle. Cette représentation préserve l'identité de chaque vue, ce qui est essentiel pour le calcul ultérieur de la distance invariante par rotation.
+
+\section{Mesure de similarité implémentée}
+
+La mesure de similarité entre deux modèles 3D constitue l'élément central du système de recherche par le contenu. Notre implémentation repose sur un moteur de similarité unifié capable de traiter les deux types de descripteurs tout en assurant l'invariance par rotation.
+
+\paragraph{Distance entre vecteurs de caractéristiques.} Pour comparer deux vecteurs de caractéristiques correspondant à une même vue, nous proposons trois métriques :
+
+\begin{itemize}
+    \item \textbf{Distance euclidienne (L2)} : $d_{\text{L2}}(\mathbf{x}, \mathbf{y}) = \sqrt{\sum_{i}(x_i - y_i)^2}$, sensible aux différences d'amplitude.
+    \item \textbf{Distance de Manhattan (L1)} : $d_{\text{L1}}(\mathbf{x}, \mathbf{y}) = \sum_{i}|x_i - y_i|$, plus robuste aux valeurs aberrantes.
+    \item \textbf{Distance cosinus} : $d_{\cos}(\mathbf{x}, \mathbf{y}) = 1 - \frac{\mathbf{x} \cdot \mathbf{y}}{\|\mathbf{x}\| \|\mathbf{y}\|}$, mesurant la dissimilarité angulaire indépendamment des normes.
+\end{itemize}
+
+\paragraph{Agrégation multi-vues.} La distance globale entre deux descripteurs est obtenue en agrégeant les distances par vue. Soit $A = (\mathbf{a}_1, \ldots, \mathbf{a}_N)$ et $B = (\mathbf{b}_1, \ldots, \mathbf{b}_N)$ les descripteurs de deux modèles, où $N$ désigne le nombre de vues. Pour une permutation $\pi$ des indices de vues, la distance agrégée est :
+$$D_\pi(A, B) = \text{agg}\big(d(\mathbf{a}_1, \mathbf{b}_{\pi(1)}), \ldots, d(\mathbf{a}_N, \mathbf{b}_{\pi(N)})\big)$$
+où $\text{agg}$ désigne une fonction d'agrégation (moyenne ou somme).
+
+\paragraph{Invariance par rotation.} L'invariance à l'orientation est assurée en minimisant la distance sur un ensemble discret de rotations. Formellement :
+$$D(A, B) = \min_{R \in \mathcal{R}} D_{\pi_R}(A, B)$$
+où $\mathcal{R}$ est l'ensemble des rotations testées et $\pi_R$ la permutation des vues induite par la rotation $R$.
+
+Pour le descripteur LFD, la structure en anneau des huit vues équatoriales permet de traiter l'invariance par rotation autour de l'axe vertical par de simples décalages cycliques. Nous testons les huit rotations correspondant aux décalages $k \in \{0, 1, \ldots, 7\}$ de l'anneau, les vues polaires restant fixes.
+
+Pour le descripteur Depth Buffer, nous testons un ensemble de rotations 3D discrètes. Plusieurs configurations sont disponibles :
+\begin{itemize}
+    \item \texttt{yaw12} / \texttt{yaw24} : 12 ou 24 rotations autour de l'axe vertical (lacet uniquement).
+    \item \texttt{grid12} / \texttt{grid24} : une grille de rotations combinant lacet et tangage, offrant une meilleure couverture de SO(3).
+\end{itemize}
+
+Pour chaque rotation $R$, la permutation $\pi_R$ est construite en faisant correspondre chaque direction de vue originale à la direction la plus proche après rotation :
+$$\pi_R(i) = \arg\max_{j} \langle R \cdot \mathbf{v}_i, \mathbf{v}_j \rangle$$
+où $\mathbf{v}_i$ et $\mathbf{v}_j$ sont les directions des vues. Cette correspondance est précalculée et mise en cache pour accélérer les comparaisons ultérieures.
+
+\paragraph{Classement Top-K.} Pour répondre à une requête, le système calcule la distance entre le descripteur du modèle requête et chaque descripteur indexé dans la base de données. Les modèles sont ensuite classés par distance croissante, et les $K$ modèles les plus proches sont retournés comme résultats. Un score de similarité normalisé est également fourni selon la formule :
+$$s = \frac{1}{1 + D}$$
+où $D$ désigne la distance calculée, de sorte que $s \in (0, 1]$ avec $s = 1$ pour des modèles identiques.
+
+\section{Pré-traitements effectués}
+
+Les pré-traitements appliqués aux modèles 3D avant le calcul des descripteurs visent à assurer l'invariance du système aux transformations géométriques de base : translation, mise à l'échelle, et partiellement rotation.
+
+\paragraph{Centrage.} Le modèle est translaté de sorte que son centre de masse coïncide avec l'origine du repère. Le centre de masse est calculé comme la moyenne arithmétique des positions de tous les sommets :
+$$\mathbf{c} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{v}_i$$
+où $\mathbf{v}_i$ désigne la position du $i$-ème sommet. Cette opération garantit l'invariance à la translation : un même objet positionné différemment dans l'espace produira le même descripteur après centrage.
+
+\paragraph{Mise à l'échelle.} Le modèle centré est ensuite mis à l'échelle pour s'inscrire dans une sphère de rayon unitaire. Le facteur d'échelle est déterminé par la distance maximale entre un sommet et l'origine :
+$$r_{\max} = \max_{i} \|\mathbf{v}_i - \mathbf{c}\|$$
+Les coordonnées normalisées sont alors :
+$$\mathbf{v}'_i = \frac{\mathbf{v}_i - \mathbf{c}}{r_{\max}}$$
+Cette normalisation assure l'invariance à l'échelle : un modèle agrandi ou réduit uniformément produira le même descripteur. Le choix de la sphère englobante plutôt que la boîte englobante pour définir le facteur d'échelle offre une meilleure robustesse aux points aberrants et aux géométries allongées.
+
+\paragraph{Absence de normalisation explicite de l'orientation.} Contrairement à certaines approches qui normalisent l'orientation du modèle par analyse en composantes principales (PCA), notre système ne procède pas à un alignement explicite des axes. Ce choix est motivé par les limitations connues de la normalisation par PCA :
+\begin{itemize}
+    \item \textbf{Ambiguïté de signe} : les axes principaux sont définis à un signe près, générant jusqu'à huit configurations équivalentes.
+    \item \textbf{Instabilité pour les formes symétriques} : les distributions de masse quasi-sphériques ou quasi-cylindriques produisent des valeurs propres proches, rendant l'orientation instable.
+    \item \textbf{Sensibilité à la distribution des sommets} : la PCA standard dépend de la densité de maillage, bien que la PCA continue atténue ce problème.
+\end{itemize}
+
+L'invariance à la rotation est donc traitée au niveau de la mesure de similarité, par exploration d'un ensemble discret de rotations lors de la comparaison des descripteurs. Cette approche, bien que plus coûteuse en temps de calcul, offre une invariance plus robuste et évite les artefacts liés aux ambiguïtés de normalisation.
+
+\paragraph{Gestion des valeurs non finies.} En présence de valeurs aberrantes (NaN, infini positif ou négatif) dans les coordonnées des sommets, celles-ci sont remplacées par zéro. Ce traitement défensif permet de traiter des modèles potentiellement corrompus sans provoquer d'erreurs numériques en cascade lors du rendu ou de l'extraction de caractéristiques.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Intégration dans l’application web}
+
+Ce chapitre décrit l'intégration de la fonctionnalité de recherche de modèles 3D par le contenu dans l'application web ObjectLens. Nous présentons l'interface utilisateur développée, le flux de traitement depuis la requête jusqu'à l'affichage des résultats, les technologies employées, ainsi que l'architecture graphique du système.
+
+\section{Description de l'interface ajoutée}
+
+L'interface de recherche 3D par le contenu a été conçue pour offrir une expérience utilisateur intuitive et fluide. Elle s'intègre harmonieusement dans l'application web existante tout en exposant les fonctionnalités avancées du moteur de similarité 3D.
+
+\subsection{Espace de recherche par contenu}
+
+L'espace de recherche 3D se présente sous forme d'une page dédiée accessible depuis la page d'accueil de l'application. La mise en page adopte une organisation en deux colonnes qui optimise l'utilisation de l'espace écran et facilite le flux de travail de l'utilisateur.
+
+La colonne de gauche constitue le panneau de contrôle principal. Elle contient une zone de téléversement permettant à l'utilisateur de sélectionner un fichier 3D depuis son système local. Les formats acceptés sont les formats standards de modélisation 3D : Wavefront OBJ, STereoLithography (STL), GL Transmission Format Binary (GLB) et Polygon File Format (PLY). Cette diversité de formats garantit une compatibilité étendue avec les outils de modélisation couramment utilisés. Sous la zone de téléversement, un visualiseur 3D interactif affiche immédiatement le modèle requête dès son chargement. L'utilisateur peut manipuler ce modèle par rotation, zoom et translation à l'aide de la souris ou des gestes tactiles, lui permettant de vérifier visuellement le modèle avant de lancer la recherche. Des informations complémentaires sont également affichées, notamment le nom du fichier et sa taille.
+
+Le panneau de contrôle propose également des paramètres de recherche configurables. L'utilisateur peut spécifier le nombre de résultats souhaités (paramètre Top-K) ainsi que, via un panneau d'options avancées, la méthode de descripteur (Depth Buffer ou Light Field Descriptor) et la métrique de distance (euclidienne L2, Manhattan L1 ou cosinus). Ces options permettent d'adapter la recherche aux caractéristiques spécifiques du cas d'usage.
+
+La colonne de droite est dédiée à l'affichage des résultats de recherche. Les modèles similaires sont présentés sous forme d'une grille de cartes visuelles, chaque carte contenant un visualiseur 3D interactif permettant d'examiner le modèle correspondant. Cette organisation facilite la comparaison rapide entre les différents résultats et le modèle requête.
+
+\section{Fonctionnement du système}
+
+Le fonctionnement du système de recherche 3D par le contenu repose sur une architecture client-serveur où le frontend orchestre les interactions utilisateur et le backend réalise les traitements intensifs d'extraction de descripteurs et de calcul de similarité.
+
+\subsection{Upload ou requête utilisateur}
+
+Le processus débute lorsque l'utilisateur sélectionne un fichier 3D via l'interface de téléversement. Le frontend React intercepte cet événement et stocke la référence du fichier dans l'état local du composant. Simultanément, le fichier est transmis au composant de visualisation qui génère un aperçu interactif du modèle à l'aide de Three.js.
+
+Lorsque l'utilisateur active la recherche en cliquant sur le bouton dédié, le frontend prépare une requête HTTP multipart. Le fichier 3D est encapsulé dans un objet FormData, accompagné des paramètres de recherche sélectionnés : le nombre de résultats souhaités, la méthode de descripteur, la métrique de distance et les options d'agrégation. Cette requête est transmise au backend via l'API Fetch native du navigateur, en mode POST vers le point de terminaison \texttt{/api/search/3D-topk}.
+
+Durant la phase de transmission et de traitement, l'interface affiche un indicateur visuel de progression informant l'utilisateur que le calcul des descripteurs 3D et la recherche de similarité sont en cours. Cette rétroaction est essentielle compte tenu du temps de traitement potentiellement significatif pour les modèles complexes.
+
+\subsection{Calcul du descripteur}
+
+À la réception de la requête, le serveur backend FastAPI extrait le fichier 3D du flux multipart et le sauvegarde temporairement sur le système de fichiers. Le module de chargement de maillage parse le fichier selon son format (OBJ, STL, GLB ou PLY) et construit une représentation interne composée des sommets et des faces triangulées.
+
+Le maillage subit ensuite une phase de normalisation géométrique. Les sommets sont centrés sur l'origine du repère par soustraction du centre de masse, puis mis à l'échelle pour s'inscrire dans une sphère de rayon unitaire. Cette normalisation garantit l'invariance du descripteur aux transformations de translation et d'échelle.
+
+Le descripteur est calculé selon la méthode sélectionnée. Pour la méthode Depth Buffer, le système génère 42 cartes de profondeur depuis des points de vue distribués selon une spirale de Fibonacci sur la sphère englobante. Chaque carte de profondeur est analysée pour extraire des histogrammes de profondeur et de gradient, ainsi que des statistiques descriptives. Pour la méthode Light Field Descriptor, le système génère 10 silhouettes binaires depuis des points de vue structurés (deux pôles et huit directions équatoriales) et caractérise chaque silhouette par des moments de Zernike et des descripteurs de Fourier du contour.
+
+Le résultat est un descripteur matriciel de dimension $(N \times d)$, où $N$ désigne le nombre de vues et $d$ la dimension du vecteur de caractéristiques par vue. Ce descripteur constitue la signature compacte du modèle requête.
+
+\subsection{Recherche de similarité}
+
+Une fois le descripteur du modèle requête calculé, le moteur de similarité procède à la comparaison avec les descripteurs pré-indexés dans la base de données MongoDB. Pour chaque modèle de la base, le système charge le descripteur correspondant et calcule la distance au modèle requête.
+
+Le calcul de distance tient compte de l'invariance par rotation. Plutôt que de comparer directement les descripteurs vue par vue, le système teste un ensemble discret de rotations et retient la correspondance minimisant la distance agrégée. Pour le descripteur LFD, l'invariance est obtenue par décalages cycliques des vues équatoriales. Pour le descripteur Depth Buffer, le système teste un ensemble de rotations 3D (12 ou 24 rotations selon la configuration) et calcule pour chaque rotation la permutation des vues induite.
+
+Les distances sont ensuite triées par ordre croissant, et les $K$ modèles présentant les distances les plus faibles sont sélectionnés comme résultats. Pour chaque résultat, le système calcule également un score de similarité normalisé selon la formule $s = 1/(1 + D)$, facilitant l'interprétation par l'utilisateur.
+
+\subsection{Affichage des résultats}
+
+Le backend retourne au frontend une réponse JSON contenant la liste ordonnée des modèles similaires. Chaque entrée inclut le rang, le nom du fichier, la classe sémantique, la distance calculée et le score de similarité.
+
+Le frontend traite cette réponse et construit dynamiquement l'affichage des résultats. Pour chaque modèle retourné, une carte visuelle est générée contenant un visualiseur 3D interactif chargé depuis l'URL du modèle correspondant stocké sur le serveur. L'utilisateur peut ainsi explorer visuellement chaque résultat par rotation et zoom, facilitant l'évaluation qualitative de la pertinence des résultats.
+
+Les cartes de résultats affichent également les métadonnées associées : le rang du modèle dans le classement, sa classe sémantique, son nom de fichier, le score de similarité exprimé en pourcentage et la distance brute. Un code couleur permet d'identifier rapidement la qualité de la correspondance : vert pour les similarités élevées, jaune pour les similarités moyennes et rouge pour les similarités faibles.
+
+La sélection d'une carte de résultat par clic permet de la mettre en surbrillance, facilitant la navigation et la comparaison avec le modèle requête affiché dans le panneau de gauche.
+
+\section{Technologies utilisées}
+
+L'implémentation du système de recherche 3D par le contenu repose sur un ensemble de technologies modernes, sélectionnées pour leur robustesse, leur performance et leur interopérabilité.
+
+\subsection{Three.js}
+
+Three.js constitue le cœur de la visualisation 3D dans le navigateur. Cette bibliothèque JavaScript encapsule les fonctionnalités de WebGL et fournit une abstraction de haut niveau pour le rendu de scènes tridimensionnelles. Dans notre application, Three.js assure plusieurs fonctions essentielles.
+
+Le chargement des modèles 3D est géré par les loaders spécialisés de Three.js : OBJLoader pour les fichiers Wavefront, STLLoader pour les fichiers STereoLithography, GLTFLoader pour les fichiers GLB/GLTF et PLYLoader pour les fichiers Polygon. Ces loaders parsent les fichiers et construisent les structures de maillage exploitables par le moteur de rendu.
+
+Le rendu temps réel est assuré par WebGLRenderer, qui exploite l'accélération matérielle du GPU pour un affichage fluide. Chaque visualiseur de modèle dispose de sa propre instance de rendu, configurée avec antialiasing et correction gamma pour une qualité visuelle optimale.
+
+L'interactivité est implémentée via OrbitControls, un composant de Three.js permettant la manipulation intuitive de la caméra. L'utilisateur peut effectuer des rotations orbitales autour du modèle par glisser-déposer, des zooms par molette de souris et des translations par clic-droit. Un damping (amortissement) est appliqué pour fluidifier les mouvements.
+
+La gestion du cycle de vie des ressources WebGL est particulièrement soignée. Chaque visualiseur surveille sa visibilité via IntersectionObserver et n'active le rendu que lorsqu'il est visible à l'écran. Les géométries, matériaux et contextes WebGL sont explicitement libérés lors du démontage des composants, prévenant les fuites mémoire dans les sessions de navigation prolongées.
+
+\subsection{Backend}
+
+Le backend est développé avec FastAPI, un framework Python moderne conçu pour la construction d'APIs performantes. FastAPI exploite les annotations de type Python pour la validation automatique des paramètres et génère une documentation OpenAPI interactive.
+
+Le point de terminaison principal \texttt{/api/search/3D-topk} expose la fonctionnalité de recherche 3D. Il accepte les requêtes multipart contenant le fichier 3D et les paramètres de recherche via query string. La validation des paramètres (plages de valeurs, formats autorisés) est assurée automatiquement par les déclarations de type FastAPI.
+
+Le traitement du maillage repose sur des modules Python dédiés : NumPy pour les opérations matricielles, OpenGL via PyOpenGL pour le rendu hors écran des projections, et des bibliothèques spécialisées (mahotas pour les moments de Zernike, scipy pour les transformées de Fourier, skimage pour le traitement d'images). Le rendu hors écran utilise GLFW pour la création de contextes OpenGL sans fenêtre visible.
+
+La persistance des descripteurs indexés est assurée par MongoDB, une base de données orientée documents permettant le stockage flexible des métadonnées et des vecteurs de caractéristiques. PyMongo assure la communication entre le backend Python et la base MongoDB.
+
+\subsection{Autres technologies}
+
+L'architecture frontend repose sur React, une bibliothèque JavaScript pour la construction d'interfaces utilisateur composables. L'état de l'application (fichier sélectionné, résultats de recherche, modèle sélectionné) est géré via les hooks React (useState), garantissant une réactivité optimale de l'interface.
+
+Le bundling et le serveur de développement sont assurés par Vite, un outil de build moderne offrant un rechargement à chaud instantané et des temps de compilation réduits. La configuration de build produit des assets optimisés pour la production.
+
+Le routage côté client est géré par React Router, permettant la navigation entre les différentes pages de l'application (accueil, recherche 2D, recherche 3D) sans rechargement complet de la page.
+
+Les requêtes HTTP vers le backend utilisent l'API Fetch native du navigateur, encapsulée dans des fonctions utilitaires asynchrones. Les variables d'environnement (notamment l'URL de base de l'API) sont injectées au build via le système de configuration de Vite.
+
+Le stylage de l'interface combine des styles inline React et Tailwind CSS, un framework CSS utility-first permettant un développement rapide et cohérent des composants visuels.
+
+\section{Interface graphique}
+
+Cette section présente l'interface graphique du système de recherche 3D par le contenu, tant sous forme de capture d'écran que de schéma conceptuel illustrant le flux de traitement.
+
+\subsection{Capture d'écran}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{images/interface.png}
+  \caption{Interface de recherche 3D par contenu intégrée dans l'application web}
+  \label{fig:interface3d}
+\end{figure}
+
+L'interface illustrée présente la disposition caractéristique du système de recherche. Le panneau de gauche affiche le modèle requête téléversé avec son visualiseur interactif et les contrôles de recherche. Le panneau de droite présente la grille des modèles similaires retournés par le moteur de recherche, chacun accompagné de son visualiseur interactif et de ses métadonnées (rang, classe, score de similarité).
+
+\subsection{Schéma de l'interface}
+
+Le diagramme suivant illustre le flux de traitement complet depuis l'interaction utilisateur jusqu'à l'affichage des résultats. Chaque bloc représente un composant fonctionnel du système, les flèches indiquant le sens du flux de données.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0.6cm and 0.3cm,
+    block/.style={rectangle, draw=blue!60, fill=blue!8, text width=2.2cm, minimum height=0.9cm, align=center, rounded corners=3pt, font=\footnotesize},
+    apiblock/.style={rectangle, draw=orange!70, fill=orange!10, text width=2.2cm, minimum height=0.9cm, align=center, rounded corners=3pt, font=\footnotesize},
+    processblock/.style={rectangle, draw=green!60, fill=green!8, text width=2.2cm, minimum height=0.9cm, align=center, rounded corners=3pt, font=\footnotesize},
+    arrow/.style={->, >=stealth, thick, draw=gray!70}
+]
+
+% Row 1: User interaction
+\node[block] (user) {Utilisateur};
+\node[block, right=of user] (upload) {Upload fichier 3D};
+\node[block, right=of upload] (viewer) {Visualiseur Three.js};
+\node[apiblock, right=of viewer] (api) {API /3D-topk};
+
+% Row 2: Backend processing
+\node[processblock, below=of api] (load) {Chargement maillage};
+\node[processblock, left=of load] (norm) {Normalisation géométrique};
+\node[processblock, left=of norm] (desc) {Extraction descripteur};
+\node[processblock, left=of desc] (sim) {Calcul similarité};
+
+% Row 3: Results
+\node[block, below=of sim] (rank) {Classement Top-K};
+\node[block, right=of rank] (resp) {Réponse JSON};
+\node[block, right=of resp] (display) {Affichage résultats};
+\node[block, right=of display] (view3d) {Visualiseurs 3D};
+
+% Arrows Row 1
+\draw[arrow] (user) -- (upload);
+\draw[arrow] (upload) -- (viewer);
+\draw[arrow] (viewer) -- (api);
+
+% Arrows Row 1 to Row 2
+\draw[arrow] (api) -- (load);
+
+% Arrows Row 2
+\draw[arrow] (load) -- (norm);
+\draw[arrow] (norm) -- (desc);
+\draw[arrow] (desc) -- (sim);
+
+% Arrows Row 2 to Row 3
+\draw[arrow] (sim) -- (rank);
+
+% Arrows Row 3
+\draw[arrow] (rank) -- (resp);
+\draw[arrow] (resp) -- (display);
+\draw[arrow] (display) -- (view3d);
+
+\end{tikzpicture}
+\caption{Schéma du flux de traitement pour la recherche 3D par contenu}
+\label{fig:schema3d}
+\end{figure}
+
+Le schéma met en évidence la séparation claire des responsabilités entre le frontend (blocs bleus) et le backend (blocs verts), avec l'API REST (bloc orange) servant d'interface de communication. Le flux suit un parcours linéaire depuis l'action utilisateur jusqu'au rendu final des résultats, chaque étape transformant progressivement les données vers le format attendu par l'étape suivante.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Expérimentations et résultats}
+
+Ce chapitre présente l'évaluation expérimentale de notre système de recherche de modèles 3D par le contenu. Nous décrivons le benchmark utilisé, le protocole de test, les métriques de performance, puis analysons les résultats obtenus avec les deux descripteurs implémentés : Light Field Descriptor (LFD) et Depth Buffer.
+
+\section{Base de données utilisée}
+
+\subsection{Benchmark IPET}
+
+Les expérimentations ont été réalisées sur le benchmark IPET (Institute for the Processing of Electrical Signals and Graphics) \footnote{\url{http://www.ipet.gr/~akoutsou/benchmark/}}, une base de données de référence pour l'évaluation des systèmes de recherche de modèles 3D. Ce benchmark est particulièrement adapté à notre contexte car il contient des modèles de poteries et récipients anciens, représentatifs de collections patrimoniales et archéologiques.
+
+La base IPET comprend 17 classes sémantiques distinctes, correspondant à différents types de récipients : Abstract, Alabastron, Amphora, Hydria, Kalathos, Krater, Kylix, Lekythos, Modern-Bottle, Modern-Glass, Modern-Mug, Modern-Vase, Native American - Bottle, Oinochoe, Pelike, Picher Shaped et Psykter. La répartition des modèles par classe est hétérogène, variant de 9 à 151 exemplaires selon les catégories. Cette variabilité reflète les conditions réelles d'utilisation où certaines classes d'objets sont plus représentées que d'autres.
+
+L'évaluation suit un protocole de type index versus requêtes. L'ensemble des modèles est divisé en deux sous-ensembles : un ensemble d'indexation contenant les modèles référencés dans la base de recherche, et un ensemble de requêtes contenant les modèles utilisés pour interroger le système. Cette configuration reproduit le scénario d'utilisation réel où un utilisateur soumet un modèle inconnu et cherche les modèles similaires dans une collection existante.
+
+\section{Protocole de test}
+
+Le protocole d'évaluation suit les conventions établies dans la littérature pour la recherche d'objets 3D par le contenu.
+
+\subsection{Configuration expérimentale}
+
+Pour chaque requête, le système calcule le descripteur du modèle requête (LFD ou Depth Buffer selon la méthode testée), puis le compare à l'ensemble des descripteurs pré-indexés dans la base. Les modèles sont classés par ordre croissant de distance, et les $k = 20$ modèles les plus proches sont retournés comme résultats.
+
+La mesure de distance utilisée est la distance euclidienne (L2) entre les vecteurs de caractéristiques. Pour le descripteur multi-vues, les distances par vue sont agrégées par leur moyenne. Une normalisation L2 des vecteurs de caractéristiques est appliquée préalablement au calcul de distance, garantissant que chaque composante contribue équitablement à la similarité globale.
+
+L'invariance par rotation est assurée par l'exploration d'un ensemble de rotations discrètes lors de la comparaison. Pour le descripteur Depth Buffer, nous utilisons la configuration \texttt{grid24} qui teste 24 rotations 3D couvrant uniformément l'espace des orientations. La distance retenue est le minimum sur l'ensemble des rotations testées.
+
+\subsection{Classes testées}
+
+L'évaluation porte sur l'ensemble des 17 classes du benchmark IPET. Les résultats sont calculés à deux niveaux : (1) par requête individuelle, en mesurant la performance de chaque interrogation, et (2) au niveau global (macro), en moyennant les performances sur l'ensemble des classes. L'approche macro accorde une importance égale à chaque classe, indépendamment du nombre de requêtes qu'elle contient, évitant ainsi que les classes sur-représentées dominent les statistiques globales.
+
+\section{Mesures de performance}
+
+Nous utilisons trois métriques standard pour évaluer la qualité de la recherche : la précision, le rappel et la précision moyenne.
+
+\subsection{Précision (Precision@k)}
+
+La précision à $k$ (notée P@$k$) mesure la proportion de modèles pertinents parmi les $k$ premiers résultats retournés. Pour une requête $q$ appartenant à la classe $c$, un résultat est considéré comme pertinent s'il appartient également à la classe $c$. Formellement :
+$$\text{P@}k(q) = \frac{|\{r \in \text{Top}_k(q) : \text{classe}(r) = \text{classe}(q)\}|}{k}$$
+
+Cette métrique évalue la pureté des résultats retournés. Une P@1 élevée signifie que le modèle le plus similaire selon le descripteur est généralement de la même classe que la requête. Une P@20 élevée indique que la majorité des 20 premiers résultats sont pertinents.
+
+\subsection{Rappel (Recall@k)}
+
+Le rappel à $k$ (noté R@$k$) mesure la proportion de modèles pertinents présents dans la base qui ont été retrouvés parmi les $k$ premiers résultats :
+$$\text{R@}k(q) = \frac{|\{r \in \text{Top}_k(q) : \text{classe}(r) = \text{classe}(q)\}|}{|\{m \in \text{Index} : \text{classe}(m) = \text{classe}(q)\}|}$$
+
+Cette métrique évalue la capacité du système à retrouver l'ensemble des modèles pertinents. Un rappel de 1.0 signifie que tous les modèles de la classe ont été retrouvés. Notons que pour les classes contenant plus de $k$ modèles dans l'index, le rappel maximal atteignable est limité par le rapport $k / |\text{classe}|$.
+
+\subsection{Précision moyenne (mAP@k)}
+
+La précision moyenne à $k$ (Mean Average Precision, notée mAP@$k$) combine précision et rappel en une métrique unique. Pour chaque requête, l'Average Precision (AP) est calculée comme la moyenne des précisions à chaque rang où un résultat pertinent apparaît :
+$$\text{AP@}k(q) = \frac{1}{\min(k, |\text{pertinents}|)} \sum_{i=1}^{k} \text{P@}i(q) \times \mathbf{1}[\text{résultat}_i \text{ pertinent}]$$
+
+La mAP@$k$ est ensuite obtenue en moyennant l'AP sur l'ensemble des requêtes (approche macro) :
+$$\text{mAP@}k = \frac{1}{|\text{Classes}|} \sum_{c \in \text{Classes}} \frac{1}{|Q_c|} \sum_{q \in Q_c} \text{AP@}k(q)$$
+
+Cette métrique pénalise les systèmes qui placent les résultats pertinents en bas du classement, même si la précision finale est identique.
+
+\section{Résultats quantitatifs}
+
+\subsection{Performances globales}
+
+Le tableau~\ref{tab:global_results} présente les performances globales (macro) obtenues par les deux descripteurs sur l'ensemble du benchmark IPET avec $k = 20$.
+
+\begin{table}[H]
+\centering
+\caption{Résumé des performances globales (macro, $k = 20$)}
+\label{tab:global_results}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Méthode} & \textbf{mAP@20} & \textbf{P@1} & \textbf{P@5} & \textbf{P@10} & \textbf{P@20} & \textbf{R@20} \\
+\midrule
+LFD & 0.2496 & 0.6152 & 0.4518 & 0.3723 & 0.3145 & 0.1862 \\
+DEPTH & 0.4638 & 0.8370 & 0.7176 & 0.6027 & 0.5095 & 0.3097 \\
+\midrule
+\textbf{Amélioration} & \textbf{+0.2142} & \textbf{+0.2218} & \textbf{+0.2658} & \textbf{+0.2304} & \textbf{+0.1950} & \textbf{+0.1235} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Les résultats montrent une supériorité significative du descripteur Depth Buffer sur l'ensemble des métriques. La mAP@20 passe de 0.2496 (LFD) à 0.4638 (DEPTH), soit une amélioration absolue de +0.214 points (amélioration relative de +86\%). La précision au rang 1 (P@1) atteint 83.7\% avec DEPTH contre 61.5\% avec LFD, indiquant que le modèle le plus similaire est de la bonne classe dans plus de 8 cas sur 10. Le rappel à 20 (R@20) progresse également de 18.6\% à 31.0\%, démontrant une meilleure couverture de l'ensemble des modèles pertinents.
+
+\subsection{Comparaison graphique}
+
+La figure~\ref{fig:evaluation_graphs} présente une comparaison visuelle des performances des deux descripteurs, incluant les métriques globales et les performances par classe.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{images/figure_graphs.png}
+\caption{Comparaison des performances LFD vs DEPTH : métriques globales (mAP@20) et performances par classe}
+\label{fig:evaluation_graphs}
+\end{figure}
+
+Les graphiques confirment la supériorité du descripteur Depth Buffer sur la quasi-totalité des classes. Certaines classes comme Alabastron (0.91 vs 0.63) et Psykter (0.99 vs 0.33) montrent des écarts particulièrement marqués, tandis que d'autres comme Modern-Mug présentent des performances comparables ou légèrement inversées.
+
+\subsection{Performances par classe}
+
+Le tableau~\ref{tab:perclass_results} détaille les performances par classe pour les catégories les plus représentatives du benchmark.
+
+\begin{table}[H]
+\centering
+\caption{Performances comparées par classe (sélection représentative)}
+\label{tab:perclass_results}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Classe} & \textbf{Requêtes} & \textbf{Index} & \multicolumn{2}{c}{\textbf{mAP@20}} & \multicolumn{2}{c}{\textbf{P@20}} \\
+& & & LFD & DEPTH & LFD & DEPTH \\
+\midrule
+Abstract & 42 & 151 & 0.480 & 0.669 & 0.560 & 0.739 \\
+Alabastron & 11 & 44 & 0.629 & 0.908 & 0.691 & 0.932 \\
+Amphora & 19 & 77 & 0.156 & 0.623 & 0.239 & 0.689 \\
+Kalathos & 11 & 43 & 0.433 & 0.750 & 0.518 & 0.759 \\
+Modern-Vase & 31 & 118 & 0.163 & 0.238 & 0.285 & 0.316 \\
+Psykter & 9 & 39 & 0.327 & 0.989 & 0.433 & 0.989 \\
+Native American & 7 & 29 & 0.588 & 0.666 & 0.650 & 0.700 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+On observe que le descripteur DEPTH surpasse LFD sur toutes les classes présentées, avec des gains particulièrement importants pour les classes Amphora (+0.467 en mAP@20), Psykter (+0.662) et Alabastron (+0.279). Ces classes correspondent à des formes présentant des variations de relief significatives, que le depth buffer capture plus efficacement que les silhouettes.
+
+\section{Analyse qualitative}
+
+\subsection{Bons résultats}
+
+Le descripteur Depth Buffer excelle sur les classes présentant des caractéristiques géométriques distinctives :
+
+\begin{itemize}
+\item \textbf{Alabastron} (mAP@20 = 0.91) : Ces récipients allongés à col étroit présentent un profil de profondeur caractéristique bien capturé par les 42 vues du descripteur. La forme tubulaire génère des gradients de profondeur cohérents sous différents angles.
+
+\item \textbf{Psykter} (mAP@20 = 0.99) : La forme bulbeuse distinctive de ces récipients crée des variations de profondeur très discriminantes. Le descripteur atteint une quasi-perfection sur cette classe.
+
+\item \textbf{Kalathos} (mAP@20 = 0.75) : Les paniers à profil évasé produisent des signatures de profondeur distinctes des autres récipients cylindriques.
+\end{itemize}
+
+\subsection{Confusions typiques}
+
+Certaines classes présentent des confusions récurrentes dues à leur proximité géométrique :
+
+\begin{itemize}
+\item \textbf{Modern-Vase} (mAP@20 = 0.24 pour DEPTH) : Cette catégorie hétérogène regroupe des formes très variées (cylindriques, sphériques, asymétriques), rendant la discrimination intra-classe difficile. Les vases modernes sont souvent confondus avec d'autres récipients de forme similaire.
+
+\item \textbf{Oinochoe et Hydria} : Ces cruches à anse partagent des caractéristiques morphologiques proches (corps arrondi, col, anse), générant des confusions inter-classes. La position et l'angle de l'anse influencent significativement le descripteur selon l'orientation.
+
+\item \textbf{Krater et Amphora} : Ces grands récipients à deux anses présentent des silhouettes et profils de profondeur parfois similaires, particulièrement pour les spécimens de proportions proches.
+\end{itemize}
+
+Ces confusions révèlent une limite intrinsèque des descripteurs basés sur les vues : des objets géométriquement proches mais sémantiquement distincts peuvent produire des descripteurs similaires.
+
+\section{Discussion}
+
+\subsection{Supériorité du descripteur Depth Buffer}
+
+L'analyse des résultats démontre clairement la supériorité du descripteur Depth Buffer sur le descripteur LFD pour notre application :
+
+\begin{enumerate}
+\item \textbf{Information de relief} : Le depth buffer encode la distance à la surface, capturant les variations de courbure et de relief que les silhouettes binaires ignorent. Deux objets de même silhouette mais de profils de surface différents sont distingués par le depth buffer.
+
+\item \textbf{Couverture angulaire} : Les 42 vues du descripteur DEPTH offrent une couverture plus complète de l'espace des orientations que les 10 vues du LFD. Cette densité d'échantillonnage réduit la sensibilité aux orientations non couvertes.
+
+\item \textbf{Robustesse aux détails fins} : Les histogrammes de gradients de profondeur capturent les variations locales de surface, tandis que les descripteurs de Fourier du contour (LFD) sont plus sensibles aux perturbations du contour.
+\end{enumerate}
+
+Sur la base de ces résultats, \textbf{le descripteur Depth Buffer est retenu comme méthode par défaut} du système de recherche.
+
+\subsection{Limites observées}
+
+Malgré ses bonnes performances, le système présente certaines limitations :
+
+\begin{itemize}
+\item \textbf{Classes hétérogènes} : Les catégories regroupant des formes variées (Modern-Vase) restent difficiles à traiter, car la notion de similarité intra-classe est moins bien définie.
+
+\item \textbf{Dépendance à l'orientation} : Bien que l'invariance par rotation soit assurée par l'exploration de rotations discrètes, certaines configurations d'objets asymétriques peuvent ne pas être parfaitement alignées.
+
+\item \textbf{Sensibilité aux proportions} : Des objets de même forme mais de proportions différentes (récipient trapu vs élancé) peuvent être jugés similaires par le descripteur.
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Conclusion}
+
+\section{Bilan des résultats}
+
+Ce projet a permis de concevoir, implémenter et évaluer un système complet de recherche de modèles 3D par le contenu, intégré dans une application web interactive. Les contributions principales sont les suivantes :
+
+\begin{enumerate}
+\item \textbf{Implémentation de deux descripteurs basés sur les vues} : Le descripteur Light Field Descriptor (LFD), fondé sur les silhouettes et encodé par moments de Zernike et descripteurs de Fourier, et le descripteur Depth Buffer, exploitant les cartes de profondeur avec 42 points de vue.
+
+\item \textbf{Évaluation comparative rigoureuse} : Les expérimentations sur le benchmark IPET démontrent une mAP@20 de \textbf{0.4638 pour le descripteur Depth Buffer} contre 0.2496 pour le LFD, soit une amélioration de +86\%. La précision au rang 1 atteint 83.7\%, confirmant l'efficacité de l'approche.
+
+\item \textbf{Intégration web complète} : L'application développée avec React/Three.js (frontend) et FastAPI/MongoDB (backend) offre une interface intuitive pour le téléversement de modèles 3D et la visualisation interactive des résultats.
+\end{enumerate}
+
+Le descripteur Depth Buffer est retenu comme méthode de référence du système en raison de sa supériorité sur l'ensemble des métriques évaluées.
+
+\section{Difficultés rencontrées}
+
+Plusieurs défis techniques et méthodologiques ont été identifiés :
+
+\begin{itemize}
+\item \textbf{Variabilité intra-classe} : Certaines catégories du benchmark (Modern-Vase, Abstract) regroupent des formes géométriquement diverses, rendant la notion de similarité ambiguë et limitant les performances de tout descripteur géométrique.
+
+\item \textbf{Similarité inter-classes} : Des classes distinctes (Oinochoe/Hydria, Krater/Amphora) partagent des caractéristiques morphologiques proches, générant des confusions que les descripteurs basés sur les vues peinent à résoudre.
+
+\item \textbf{Dépendance au point de vue} : Malgré l'exploration de multiples rotations, l'appariement optimal des vues reste approximatif pour les objets fortement asymétriques ou présentant des détails localisés.
+
+\item \textbf{Coût computationnel} : Le calcul des 42 cartes de profondeur et l'exploration des rotations 3D induisent un temps de traitement significatif, limitant l'interactivité pour les très grandes bases de données.
+\end{itemize}
+
+\section{Perspectives d'amélioration}
+
+Plusieurs pistes d'amélioration peuvent être envisagées pour les travaux futurs :
+
+\begin{itemize}
+\item \textbf{Fusion de descripteurs} : Combiner LFD et Depth Buffer par concaténation pondérée ou apprentissage de métrique pourrait capturer des caractéristiques complémentaires (silhouette globale + relief local).
+
+\item \textbf{Amélioration du multi-vues} : L'utilisation de mécanismes d'attention pour pondérer dynamiquement les vues en fonction de leur caractère discriminant permettrait de réduire l'impact des vues redondantes.
+
+\item \textbf{Apprentissage de représentations} : L'application de réseaux de neurones convolutifs (type MVCNN) aux projections 2D permettrait d'apprendre des descripteurs optimisés pour la tâche de recherche, potentiellement plus performants que les descripteurs manuels.
+
+\item \textbf{Re-ranking et feedback} : L'intégration d'un mécanisme de re-ranking basé sur des critères supplémentaires (texture, couleur si disponible) ou un retour utilisateur interactif améliorerait la précision des résultats.
+
+\item \textbf{Normalisation robuste} : L'exploration de méthodes de normalisation alternatives à la PCA (alignement par recalage ICP, détection de symétries) réduirait la sensibilité à l'orientation initiale des modèles.
+
+\item \textbf{Passage à l'échelle} : L'utilisation de structures d'indexation approchées (LSH, arbres métriques, index FAISS) permettrait de maintenir des temps de réponse interactifs sur des bases de plusieurs millions de modèles.
+\end{itemize}
+
+En conclusion, ce projet démontre la viabilité des approches basées sur les vues pour la recherche de modèles 3D par le contenu, et ouvre des perspectives prometteuses pour l'amélioration des systèmes de recherche dans les domaines du patrimoine culturel, de la CAO et de l'archéologie.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% La bibliographie est générée automatiquement à partir de references.bib
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
